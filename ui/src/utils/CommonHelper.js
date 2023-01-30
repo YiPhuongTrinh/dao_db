@@ -1,5 +1,25 @@
 import { DateTime } from "luxon";
 
+const imageExtensions = [
+   ".jpg", ".jpeg", ".png", ".svg",
+   ".gif", ".jfif", ".webp", ".avif",
+];
+
+const videoExtensions = [
+    ".mp4", ".avi", ".mov", ".3gp", ".wmv",
+];
+
+const audioExtensions = [
+    ".aa", ".aac", ".m4v", ".mp3",
+    ".ogg", ".oga", ".mogg", ".amr",
+];
+
+const documentExtensions = [
+    ".pdf", ".doc", ".docx", ".xls",
+    ".xlsx", ".ppt", ".pptx", ".odp",
+    ".odt", ".ods", ".txt",
+];
+
 export default class CommonHelper {
     /**
      * Checks whether value is plain object.
@@ -88,7 +108,7 @@ export default class CommonHelper {
     }
 
     /**
-     * Normalizes and returns arr as a valid array instance (if not already).
+     * Normalizes and returns arr as a new array instance.
      *
      * @param  {Array}   arr
      * @param  {Boolean} [allowEmpty]
@@ -96,7 +116,7 @@ export default class CommonHelper {
      */
     static toArray(arr, allowEmpty = false) {
         if (Array.isArray(arr)) {
-            return arr;
+            return arr.slice();
         }
 
         return (allowEmpty || !CommonHelper.isEmpty(arr)) && typeof arr !== "undefined" ? [arr] : [];
@@ -210,10 +230,9 @@ export default class CommonHelper {
     /**
      * Adds or replace an object array element by comparing its key value.
      *
-     * @param  {Array}  objectsArr
-     * @param  {Object} item
-     * @param  {Mixed}  [key]
-     * @return {Array}
+     * @param {Array}  objectsArr
+     * @param {Object} item
+     * @param {Mixed}  [key]
      */
     static pushOrReplaceByKey(objectsArr, item, key = "id") {
         for (let i = objectsArr.length - 1; i >= 0; i--) {
@@ -438,6 +457,61 @@ export default class CommonHelper {
     }
 
     /**
+     * Returns the plain text version (aka. strip tags) of the provided string.
+     *
+     * @param  {String} str
+     * @return {String}
+     */
+    static plainText(str) {
+        if (!str) {
+            return "";
+        }
+
+        const doc = new DOMParser().parseFromString(str, "text/html");
+
+        return (doc.body.innerText || "").trim();
+    }
+
+    /**
+     * Truncates the provided text to the specified max characters length.
+     *
+     * @param  {String} str
+     * @param  {Number} length
+     * @return {String}
+     */
+    static truncate(str, length = 150, dots = false) {
+        str = str || "";
+
+        if (str.length <= length) {
+            return str;
+        }
+
+        return str.substring(0, length) + (dots ? "..." : "");
+    }
+
+    /**
+     * Returns a new object copy with truncated the large text fields.
+     *
+     * @param  {Object} obj
+     * @return {Object}
+     */
+    static truncateObject(obj) {
+        const truncated = {};
+
+        for (let key in obj) {
+            let value = obj[key];
+
+            if (typeof value === 'string') {
+                value = CommonHelper.truncate(value, 150, true);
+            }
+
+            truncated[key] = value;
+        }
+
+        return truncated;
+    }
+
+    /**
      * Normalizes and converts the provided string to a slug.
      *
      * @param  {String} str
@@ -654,13 +728,57 @@ export default class CommonHelper {
     }
 
     /**
-     * Loosely check if a file is an image based on its filename extension.
+     * Loosely check if a file has image extension.
      *
      * @param  {String} filename
      * @return {Boolean}
      */
     static hasImageExtension(filename) {
-        return /\.jpg|\.jpeg|\.png|\.svg|\.gif|\.jfif|\.webp|\.avif$/.test(filename)
+        return !!imageExtensions.find((ext) => filename.toLowerCase().endsWith(ext));
+    }
+
+    /**
+     * Loosely check if a file has video extension.
+     *
+     * @param  {String} filename
+     * @return {Boolean}
+     */
+    static hasVideoExtension(filename) {
+        return !!videoExtensions.find((ext) => filename.toLowerCase().endsWith(ext));
+    }
+
+    /**
+     * Loosely check if a file has audio extension.
+     *
+     * @param  {String} filename
+     * @return {Boolean}
+     */
+    static hasAudioExtension(filename) {
+        return !!audioExtensions.find((ext) => filename.toLowerCase().endsWith(ext));
+    }
+
+    /**
+     * Loosely check if a file has document extension.
+     *
+     * @param  {String} filename
+     * @return {Boolean}
+     */
+    static hasDocumentExtension(filename) {
+        return !!documentExtensions.find((ext) => filename.toLowerCase().endsWith(ext));
+    }
+
+    /**
+     * Returns the file type based on its filename.
+     *
+     * @param  {String} filename
+     * @return {String}
+     */
+    static getFileType(filename) {
+        if (CommonHelper.hasImageExtension(filename)) return "image";
+        if (CommonHelper.hasDocumentExtension(filename)) return "document";
+        if (CommonHelper.hasVideoExtension(filename)) return "video";
+        if (CommonHelper.hasAudioExtension(filename)) return "audio";
+        return "file";
     }
 
     /**
@@ -737,24 +855,6 @@ export default class CommonHelper {
             formData.append(key, JSON.stringify(value));
         } else {
             formData.append(key, "" + value);
-        }
-    }
-
-    /**
-     * Returns the default Flatpickr initialization options.
-     *
-     * @return {Object}
-     */
-    static defaultFlatpickrOptions() {
-        return {
-            dateFormat: "Y-m-d H:i:S",
-            disableMobile: true,
-            allowInput: true,
-            enableTime: true,
-            time_24hr: true,
-            locale: {
-                firstDayOfWeek: 1,
-            },
         }
     }
 
@@ -908,6 +1008,8 @@ export default class CommonHelper {
                 return "ri-mail-line";
             case "url":
                 return "ri-link";
+            case "editor":
+                return "ri-edit-2-line";
             case "select":
                 return "ri-list-check";
             case "json":
@@ -963,7 +1065,11 @@ export default class CommonHelper {
             return "false";
         }
 
-        // array value
+        if (field?.type === "json") {
+            return 'null, "", [], {}';
+        }
+
+        // arrayable fields
         if (["select", "relation", "file"].includes(field?.type) && field?.options?.maxSelect != 1) {
             return "[]";
         }
@@ -1048,13 +1154,13 @@ export default class CommonHelper {
         const singleCollections = [];
         const baseCollections = [];
 
-        for (const colelction of collections) {
-            if (colelction.type == 'auth') {
-                authCollections.push(colelction);
-            } else if (colelction.type == 'single') {
-                singleCollections.push(colelction);
+        for (const collection of collections) {
+            if (collection.type === 'auth') {
+                authCollections.push(collection);
+            } else if (collection.type === 'single') {
+                singleCollections.push(collection);
             } else {
-                baseCollections.push(colelction);
+                baseCollections.push(collection);
             }
         }
 
@@ -1071,5 +1177,147 @@ export default class CommonHelper {
         return new Promise((resolve) => {
             setTimeout(resolve, 0);
         });
+    }
+
+    /**
+     * Returns the default Flatpickr initialization options.
+     *
+     * @return {Object}
+     */
+    static defaultFlatpickrOptions() {
+        return {
+            dateFormat: "Y-m-d H:i:S",
+            disableMobile: true,
+            allowInput: true,
+            enableTime: true,
+            time_24hr: true,
+            locale: {
+                firstDayOfWeek: 1,
+            },
+        }
+    }
+
+    /**
+     * Returns the default rich editor options.
+     *
+     * @return {Object}
+     */
+    static defaultEditorOptions() {
+        return {
+            branding: false,
+            promotion: false,
+            menubar: false,
+            min_height: 270,
+            height: 270,
+            max_height: 700,
+            autoresize_bottom_margin: 30,
+            skin: "pocketbase",
+            content_css: "pocketbase",
+            content_style: "body { font-size: 14px }",
+            plugins: [
+                "autoresize",
+                "autolink",
+                "lists",
+                "link",
+                "image",
+                "searchreplace",
+                "fullscreen",
+                "insertdatetime",
+                "media",
+                "table",
+                "code",
+                "codesample",
+            ],
+            toolbar:
+                "undo redo | styles | alignleft aligncenter alignright | bold italic forecolor backcolor | bullist numlist | link image table codesample | code fullscreen",
+            file_picker_types: "image",
+            // @see https://www.tiny.cloud/docs/tinymce/6/file-image-upload/#interactive-example
+            file_picker_callback: (cb, value, meta) => {
+                const input = document.createElement("input");
+                input.setAttribute("type", "file");
+                input.setAttribute("accept", "image/*");
+
+                input.addEventListener("change", (e) => {
+                    const file = e.target.files[0];
+                    const reader = new FileReader();
+
+                    reader.addEventListener("load", () => {
+                        if (!tinymce) {
+                            return;
+                        }
+
+                        // We need to register the blob in TinyMCEs image blob registry.
+                        // In future TinyMCE version this part will be handled internally.
+                        const id = "blobid" + new Date().getTime();
+                        const blobCache = tinymce.activeEditor.editorUpload.blobCache;
+                        const base64 = reader.result.split(",")[1];
+                        const blobInfo = blobCache.create(id, file, base64);
+                        blobCache.add(blobInfo);
+
+                        // call the callback and populate the Title field with the file name
+                        cb(blobInfo.blobUri(), { title: file.name });
+                    });
+
+                    reader.readAsDataURL(file);
+                });
+
+                input.click();
+            },
+        };
+    }
+
+    /**
+     * Tries to output the first displayable field of the provided model.
+     *
+     * @param  {Object} model
+     * @return {Any}
+     */
+    static displayValue(model, displayFields, missingValue = "N/A") {
+        model = model || {};
+        displayFields = displayFields || [];
+
+        let result = [];
+
+        for (const field of displayFields) {
+            let val = model[field];
+
+            if (typeof val === "undefined") {
+                continue
+            }
+
+            if (CommonHelper.isEmpty(val)) {
+                result.push(missingValue);
+            } else if (typeof val === "boolean")  {
+                result.push(val ? "True" : "False");
+            } else if (typeof val === "string") {
+                val = val.indexOf("<") >= 0 ? CommonHelper.plainText(val) : val;
+                result.push(CommonHelper.truncate(val));
+            } else {
+                result.push(val);
+            }
+        }
+
+        if (result.length > 0) {
+            return result.join(", ");
+        }
+
+        const fallbackProps = [
+            "title",
+            "name",
+            "email",
+            "username",
+            "heading",
+            "label",
+            "key",
+            "id",
+        ];
+
+        for (const prop of fallbackProps) {
+            if (!CommonHelper.isEmpty(model[prop])) {
+                return model[prop];
+            }
+        }
+
+        return missingValue;
     }
 }

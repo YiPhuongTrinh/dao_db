@@ -455,6 +455,7 @@ func (form *RecordUpsert) Validate() error {
 				form.record.IsNew(),
 				validation.Length(models.DefaultIdLength, models.DefaultIdLength),
 				validation.Match(idRegex),
+				validation.By(validators.UniqueId(form.dao, form.record.TableName())),
 			).Else(validation.In(form.record.Id)),
 		),
 	}
@@ -466,7 +467,7 @@ func (form *RecordUpsert) Validate() error {
 				&form.Username,
 				// require only on update, because on create we fallback to auto generated username
 				validation.When(!form.record.IsNew(), validation.Required),
-				validation.Length(3, 100),
+				validation.Length(3, 150),
 				validation.Match(usernameRegex),
 				validation.By(form.checkUniqueUsername),
 			),
@@ -717,12 +718,14 @@ func (form *RecordUpsert) DrySubmit(callback func(txDao *daos.Dao) error) error 
 //
 // You can optionally provide a list of InterceptorFunc to further
 // modify the form behavior before persisting it.
-func (form *RecordUpsert) Submit(interceptors ...InterceptorFunc) error {
+func (form *RecordUpsert) Submit(interceptors ...InterceptorFunc[*models.Record]) error {
 	if err := form.ValidateAndFill(); err != nil {
 		return err
 	}
 
-	return runInterceptors(func() error {
+	return runInterceptors(form.record, func(record *models.Record) error {
+		form.record = record
+
 		if !form.record.HasId() {
 			form.record.RefreshId()
 			form.record.MarkAsNew()

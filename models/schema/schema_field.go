@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"regexp"
+	"strconv"
 
 	validation "github.com/go-ozzo/ozzo-validation/v4"
 	"github.com/go-ozzo/ozzo-validation/v4/is"
@@ -86,6 +87,7 @@ const (
 	FieldTypeBool     string = "bool"
 	FieldTypeEmail    string = "email"
 	FieldTypeUrl      string = "url"
+	FieldTypeEditor   string = "editor"
 	FieldTypeDate     string = "date"
 	FieldTypeSelect   string = "select"
 	FieldTypeJson     string = "json"
@@ -104,6 +106,7 @@ func FieldTypes() []string {
 		FieldTypeBool,
 		FieldTypeEmail,
 		FieldTypeUrl,
+		FieldTypeEditor,
 		FieldTypeDate,
 		FieldTypeSelect,
 		FieldTypeJson,
@@ -183,7 +186,7 @@ func (f SchemaField) Validate() error {
 
 	excludeNames := BaseModelFieldNames()
 	// exclude special filter literals
-	excludeNames = append(excludeNames, "null", "true", "false", "isset")
+	excludeNames = append(excludeNames, "null", "true", "false")
 	// exclude system literals
 	excludeNames = append(excludeNames, SystemFieldNames()...)
 
@@ -238,6 +241,8 @@ func (f *SchemaField) InitOptions() error {
 		options = &EmailOptions{}
 	case FieldTypeUrl:
 		options = &UrlOptions{}
+	case FieldTypeEditor:
+		options = &EditorOptions{}
 	case FieldTypeDate:
 		options = &DateOptions{}
 	case FieldTypeSelect:
@@ -272,10 +277,38 @@ func (f *SchemaField) PrepareValue(value any) any {
 	f.InitOptions()
 
 	switch f.Type {
-	case FieldTypeText, FieldTypeEmail, FieldTypeUrl:
+	case FieldTypeText, FieldTypeEmail, FieldTypeUrl, FieldTypeEditor:
 		return cast.ToString(value)
 	case FieldTypeJson:
-		val, _ := types.ParseJsonRaw(value)
+		val := value
+
+		if str, ok := val.(string); ok {
+			// in order to support seamlessly both json and multipart/form-data requests,
+			// the following normalization rules are applied for plain string values:
+			// - "true" is converted to the json `true`
+			// - "false" is converted to the json `false`
+			// - "null" is converted to the json `null`
+			// - "[1,2,3]" is converted to the json `[1,2,3]`
+			// - "{\"a\":1,\"b\":2}" is converted to the json `{"a":1,"b":2}`
+			// - numeric strings are converted to json number
+			// - double quoted strings are left as they are (aka. without normalizations)
+			// - any other string (empty string too) is double quoted
+			if str == "" {
+				val = strconv.Quote(str)
+			} else if str == "null" || str == "true" || str == "false" {
+				val = str
+			} else if ((str[0] >= '0' && str[0] <= '9') ||
+				str[0] == '"' ||
+				str[0] == '[' ||
+				str[0] == '{') &&
+				is.JSON.Validate(str) == nil {
+				val = str
+			} else {
+				val = strconv.Quote(str)
+			}
+		}
+
+		val, _ = types.ParseJsonRaw(val)
 		return val
 	case FieldTypeNumber:
 		return cast.ToFloat64(value)
@@ -473,6 +506,15 @@ func (o UrlOptions) Validate() error {
 
 // -------------------------------------------------------------------
 
+type EditorOptions struct {
+}
+
+func (o EditorOptions) Validate() error {
+	return nil
+}
+
+// -------------------------------------------------------------------
+
 type DateOptions struct {
 	Min types.DateTime `form:"min" json:"min"`
 	Max types.DateTime `form:"max" json:"max"`
@@ -555,9 +597,21 @@ func (o FileOptions) Validate() error {
 // -------------------------------------------------------------------
 
 type RelationOptions struct {
-	MaxSelect     *int   `form:"maxSelect" json:"maxSelect"`
-	CollectionId  string `form:"collectionId" json:"collectionId"`
-	CascadeDelete bool   `form:"cascadeDelete" json:"cascadeDelete"`
+	// CollectionId is the id of the related collection.
+	CollectionId string `form:"collectionId" json:"collectionId"`
+
+	// CascadeDelete indicates whether the root model should be deleted
+	// in case of delete of all linked relations.
+	CascadeDelete bool `form:"cascadeDelete" json:"cascadeDelete"`
+
+	// MaxSelect indicates the max number of allowed relation records
+	// that could be linked to the main model.
+	//
+	// If nil no limits are applied.
+	MaxSelect *int `form:"maxSelect" json:"maxSelect"`
+
+	// DisplayFields is optional slice of collection field names used for UI purposes.
+	DisplayFields []string `form:"displayFields" json:"displayFields"`
 }
 
 func (o RelationOptions) Validate() error {

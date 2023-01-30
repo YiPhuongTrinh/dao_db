@@ -110,6 +110,12 @@ func NewProviderByName(name string) (Provider, error) {
 		return NewStravaProvider(), nil
 	case NameGitee:
 		return NewGiteeProvider(), nil
+	case NameLivechat:
+		return NewLivechatProvider(), nil
+	case NameAuthentik:
+		return NewAuthentikProvider(), nil
+	case NameGitea:
+		return NewGiteaProvider(), nil
 	default:
 		return nil, errors.New("Missing provider " + name)
 	}

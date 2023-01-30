@@ -1,3 +1,100 @@
+## v0.12.0
+
+- Refactored the relation picker UI to allowing server-side search, sorting, create, update and delete of relation records ([#976](https://github.com/pocketbase/pocketbase/issues/976)).
+
+- Added new `RelationOptions.DisplayFields` option to specify custom relation field(s) visualization in the Admin UI.
+
+- Added Authentik OAuth2 provider ([#1377](https://github.com/pocketbase/pocketbase/pull/1377); thanks @pr0ton11).
+
+- Added LiveChat OAuth2 provider ([#1573](https://github.com/pocketbase/pocketbase/pull/1573); thanks @mariosant).
+
+- Added Gitea OAuth2 provider ([#1643](https://github.com/pocketbase/pocketbase/pull/1643); thanks @hlanderdev).
+
+- Added PDF file previews ([#1548](https://github.com/pocketbase/pocketbase/pull/1548); thanks @mjadobson).
+
+- Added video and audio file previews.
+
+- Added rich text editor (`editor`) field for HTML content based on TinyMCE ([#370](https://github.com/pocketbase/pocketbase/issues/370)).
+  _Currently the new field doesn't have any configuration options or validations but this may change in the future depending on how devs ended up using it._
+
+- Added "Duplicate" Collection and Record options in the Admin UI ([#1656](https://github.com/pocketbase/pocketbase/issues/1656)).
+
+- Added `filesystem.GetFile()` helper to read files through the FileSystem abstraction ([#1578](https://github.com/pocketbase/pocketbase/pull/1578); thanks @avarabyeu).
+
+- Added new auth event hooks for finer control and more advanced auth scenarios handling:
+
+  ```go
+  // auth record
+  OnRecordBeforeAuthWithPasswordRequest()
+  OnRecordAfterAuthWithPasswordRequest()
+  OnRecordBeforeAuthWithOAuth2Request()
+  OnRecordAfterAuthWithOAuth2Request()
+  OnRecordBeforeAuthRefreshRequest()
+  OnRecordAfterAuthRefreshRequest()
+
+  // admin
+  OnAdminBeforeAuthWithPasswordRequest()
+  OnAdminAfterAuthWithPasswordRequest()
+  OnAdminBeforeAuthRefreshRequest()
+  OnAdminAfterAuthRefreshRequest()
+  OnAdminBeforeRequestPasswordResetRequest()
+  OnAdminAfterRequestPasswordResetRequest()
+  OnAdminBeforeConfirmPasswordResetRequest()
+  OnAdminAfterConfirmPasswordResetRequest()
+  ```
+
+- Added `models.Record.CleanCopy()` helper that creates a new record copy with only the latest data state of the existing one and all other options reset to their defaults.
+
+- Added new helper `apis.RecordAuthResponse(app, httpContext, record, meta)` to return a standard Record auth API response ([#1623](https://github.com/pocketbase/pocketbase/issues/1623)).
+
+- Refactored `models.Record` expand and data change operations to be concurrent safe.
+
+- Refactored all `forms` Submit interceptors to use a generic data type as their payload.
+
+- Added several `store.Store` helpers:
+  ```go
+  store.Reset(newData map[string]T)
+  store.Length() int
+  store.GetAll() map[string]T
+  ```
+
+- Added "tags" support for all Record and Model related event hooks.
+
+    The "tags" allow registering event handlers that will be called only on matching table name(s) or colleciton id(s)/name(s).
+    For example:
+    ```go
+    app.OnRecordBeforeCreateRequest("articles").Add(func(e *core.RecordCreateEvent) error {
+      // called only on "articles" record creation
+      log.Println(e.Record)
+      return nil
+    })
+    ```
+    For all those event hooks `*hook.Hook` was replaced with `*hooks.TaggedHook`, but the hook methods signatures are the same so it should behave as it was previously if no tags were specified.
+
+- **!** Fixed the `json` field **string** value normalization ([#1703](https://github.com/pocketbase/pocketbase/issues/1703)).
+
+    In order to support seamlessly both `application/json` and `multipart/form-data`
+    requests, the following normalization rules are applied if the `json` field is a
+    **plain string value**:
+
+    - "true" is converted to the json `true`
+    - "false" is converted to the json `false`
+    - "null" is converted to the json `null`
+    - "[1,2,3]" is converted to the json `[1,2,3]`
+    - "{\"a\":1,\"b\":2}" is converted to the json `{"a":1,"b":2}`
+    - numeric strings are converted to json number
+    - double quoted strings are left as they are (aka. without normalizations)
+    - any other string (empty string too) is double quoted
+
+    Additionally, the "Nonempty" `json` field constraint now checks for `null`, `[]`, `{}` and `""` (empty string).
+
+- Added `aria-label` to some of the buttons in the Admin UI for better accessibility ([#1702](https://github.com/pocketbase/pocketbase/pull/1702); thanks @ndarilek).
+
+- Updated the filename extension checks in the Admin UI to be case-insensitive ([#1707](https://github.com/pocketbase/pocketbase/pull/1707); thanks @hungcrush).
+
+- Other minor improvements (more detailed API file upload errors, UI optimizations, docs improvements, etc.)
+
+
 ## v0.11.4
 
 - Fixed cascade delete for rel records with the same id as the main record ([#1689](https://github.com/pocketbase/pocketbase/issues/1689)).

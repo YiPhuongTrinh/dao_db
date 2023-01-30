@@ -6,8 +6,8 @@
     import ApiClient from "@/utils/ApiClient";
     import { errors, setErrors, removeError } from "@/stores/errors";
     import { confirm } from "@/stores/confirmation";
-    import { addSuccessToast } from "@/stores/toasts";
-    import { addCollection, removeCollection } from "@/stores/collections";
+    import { removeAllToasts, addSuccessToast } from "@/stores/toasts";
+    import { loadCollections, removeCollection } from "@/stores/collections";
     import tooltip from "@/actions/tooltip";
     import Field from "@/components/base/Field.svelte";
     import Toggler from "@/components/base/Toggler.svelte";
@@ -77,6 +77,7 @@
 
     async function load(model) {
         setErrors({}); // reset errors
+
         if (typeof model !== "undefined") {
             original = model;
             collection = model?.clone();
@@ -84,6 +85,7 @@
             original = null;
             collection = new Collection();
         }
+
         // normalize
         collection.schema = collection.schema || [];
         collection.originalName = collection.name || "";
@@ -119,12 +121,16 @@
 
         request
             .then((result) => {
+                removeAllToasts();
+
+                loadCollections(result.id);
+
                 confirmClose = false;
                 hide();
+
                 addSuccessToast(
                     collection.isNew ? "Successfully created collection." : "Successfully updated collection."
                 );
-                addCollection(result);
 
                 dispatch("save", {
                     isNew: collection.isNew,
@@ -184,6 +190,40 @@
         // reset schema errors on type change
         removeError("schema");
     }
+
+    function duplicateConfirm() {
+        if (hasChanges) {
+            confirm("You have unsaved changes. Do you really want to discard them?", () => {
+                duplicate();
+            });
+        } else {
+            duplicate();
+        }
+    }
+
+    async function duplicate() {
+        const clone = original?.clone();
+
+        if (clone) {
+            clone.id = "";
+            clone.created = "";
+            clone.updated = "";
+            clone.name += "_duplicate";
+
+            // reset the schema
+            if (!CommonHelper.isEmpty(clone.schema)) {
+                for (const field of clone.schema) {
+                    field.id = "";
+                }
+            }
+        }
+
+        show(clone);
+
+        await tick();
+
+        initialFormHash = "";
+    }
 </script>
 
 <OverlayPanel
@@ -203,15 +243,19 @@
     on:show
 >
     <svelte:fragment slot="header">
-        <h4>
+        <h4 class="upsert-panel-title">
             {collection.isNew ? "New collection" : "Edit collection"}
         </h4>
 
         {#if !collection.isNew && !collection.system}
             <div class="flex-fill" />
-            <button type="button" class="btn btn-sm btn-circle btn-secondary flex-gap-0">
+            <button type="button" aria-label="More" class="btn btn-sm btn-circle btn-transparent flex-gap-0">
                 <i class="ri-more-line" />
                 <Toggler class="dropdown dropdown-right m-t-5">
+                    <button type="button" class="dropdown-item closable" on:click={() => duplicateConfirm()}>
+                        <i class="ri-file-copy-line" />
+                        <span class="txt">Duplicate</span>
+                    </button>
                     <button
                         type="button"
                         class="dropdown-item txt-danger closable"
@@ -256,7 +300,7 @@
                 <div class="form-field-addon">
                     <button
                         type="button"
-                        class="btn btn-sm p-r-10 p-l-10 {collection.isNew ? 'btn-hint' : 'btn-secondary'}"
+                        class="btn btn-sm p-r-10 p-l-10 {collection.isNew ? 'btn-hint' : 'btn-transparent'}"
                         disabled={!collection.isNew}
                     >
                         <!-- empty span for alignment -->
@@ -362,7 +406,7 @@
     </div>
 
     <svelte:fragment slot="footer">
-        <button type="button" class="btn btn-secondary" disabled={isSaving} on:click={() => hide()}>
+        <button type="button" class="btn btn-transparent" disabled={isSaving} on:click={() => hide()}>
             <span class="txt">Cancel</span>
         </button>
         <button
@@ -380,6 +424,11 @@
 <CollectionUpdateConfirm bind:this={confirmChangesPanel} on:confirm={() => save()} />
 
 <style>
+    .upsert-panel-title {
+        display: inline-flex;
+        align-items: center;
+        min-height: var(--smBtnHeight);
+    }
     .tabs-content {
         z-index: 3; /* autocomplete dropdown overlay fix */
     }

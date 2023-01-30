@@ -98,6 +98,18 @@ func (s *System) Attributes(fileKey string) (*blob.Attributes, error) {
 	return s.bucket.Attributes(s.ctx, fileKey)
 }
 
+// GetFile returns a file content reader for the given fileKey.
+//
+// NB! Make sure to call `Close()` after you are done working with it.
+func (s *System) GetFile(fileKey string) (io.ReadCloser, error) {
+	br, err := s.bucket.NewReader(s.ctx, fileKey, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return br, nil
+}
+
 // Upload writes content into the fileKey location.
 func (s *System) Upload(content []byte, fileKey string) error {
 	opts := &blob.WriterOptions{
@@ -298,7 +310,7 @@ func (s *System) Serve(res http.ResponseWriter, req *http.Request, fileKey strin
 	}
 
 	// make an exception for specific content types and force a custom
-	// content type to send in the response so that it can be loaded directly
+	// content type to send in the response so that it can be loaded properly
 	extContentType := realContentType
 	if ct, found := manualExtensionContentTypes[filepath.Ext(name)]; found && extContentType != ct {
 		extContentType = ct

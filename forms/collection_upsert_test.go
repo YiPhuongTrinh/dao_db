@@ -169,6 +169,25 @@ func TestCollectionUpsertValidateAndSubmit(t *testing.T) {
 			[]string{"schema"},
 		},
 		{
+			"create failure - missing relation display field",
+			"",
+			`{
+				"name": "test_new",
+				"type": "base",
+				"schema": [
+					{
+						"name":"test",
+						"type":"relation",
+						"options":{
+							"collectionId":"wsmn24bux7wo113",
+							"displayFields":["text", "missing"]
+						}
+					}
+				]
+			}`,
+			[]string{"schema"},
+		},
+		{
 			"create failure - check type options validators",
 			"",
 			`{
@@ -190,7 +209,15 @@ func TestCollectionUpsertValidateAndSubmit(t *testing.T) {
 				"system": true,
 				"schema": [
 					{"id":"a123456","name":"test1","type":"text"},
-					{"id":"b123456","name":"test2","type":"email"}
+					{"id":"b123456","name":"test2","type":"email"},
+					{
+						"name":"test3",
+						"type":"relation",
+						"options":{
+							"collectionId":"v851q4r790rhknl",
+							"displayFields":["name","id","created","updated","username","email","emailVisibility","verified"]
+						}
+					}
 				],
 				"listRule": "test1='123' && verified = true",
 				"viewRule": "test1='123' && emailVisibility = true",
@@ -351,10 +378,10 @@ func TestCollectionUpsertValidateAndSubmit(t *testing.T) {
 		}
 
 		interceptorCalls := 0
-		interceptor := func(next forms.InterceptorNextFunc) forms.InterceptorNextFunc {
-			return func() error {
+		interceptor := func(next forms.InterceptorNextFunc[*models.Collection]) forms.InterceptorNextFunc[*models.Collection] {
+			return func(c *models.Collection) error {
 				interceptorCalls++
-				return next()
+				return next(c)
 			}
 		}
 
@@ -451,16 +478,16 @@ func TestCollectionUpsertSubmitInterceptors(t *testing.T) {
 	interceptorCollectionName := ""
 
 	interceptor1Called := false
-	interceptor1 := func(next forms.InterceptorNextFunc) forms.InterceptorNextFunc {
-		return func() error {
+	interceptor1 := func(next forms.InterceptorNextFunc[*models.Collection]) forms.InterceptorNextFunc[*models.Collection] {
+		return func(c *models.Collection) error {
 			interceptor1Called = true
-			return next()
+			return next(c)
 		}
 	}
 
 	interceptor2Called := false
-	interceptor2 := func(next forms.InterceptorNextFunc) forms.InterceptorNextFunc {
-		return func() error {
+	interceptor2 := func(next forms.InterceptorNextFunc[*models.Collection]) forms.InterceptorNextFunc[*models.Collection] {
+		return func(c *models.Collection) error {
 			interceptorCollectionName = collection.Name // to check if the record was filled
 			interceptor2Called = true
 			return testErr

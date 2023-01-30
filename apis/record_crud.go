@@ -83,12 +83,11 @@ func (api *recordApi) list(c echo.Context) error {
 
 	result.Items = records
 
-	event := &core.RecordsListEvent{
-		HttpContext: c,
-		Collection:  collection,
-		Records:     records,
-		Result:      result,
-	}
+	event := new(core.RecordsListEvent)
+	event.HttpContext = c
+	event.Collection = collection
+	event.Records = records
+	event.Result = result
 
 	return api.app.OnRecordsListRequest().Trigger(event, func(e *core.RecordsListEvent) error {
 		if err := EnrichRecords(e.HttpContext, api.app.Dao(), e.Records); err != nil && api.app.IsDebug() {
@@ -135,10 +134,10 @@ func (api *recordApi) view(c echo.Context) error {
 		return NewNotFoundError("", fetchErr)
 	}
 
-	event := &core.RecordViewEvent{
-		HttpContext: c,
-		Record:      record,
-	}
+	event := new(core.RecordViewEvent)
+	event.HttpContext = c
+	event.Collection = collection
+	event.Record = record
 
 	return api.app.OnRecordViewRequest().Trigger(event, func(e *core.RecordViewEvent) error {
 		if err := EnrichRecord(e.HttpContext, api.app.Dao(), e.Record); err != nil && api.app.IsDebug() {
@@ -218,16 +217,18 @@ func (api *recordApi) create(c echo.Context) error {
 		return NewBadRequestError("Failed to load the submitted data due to invalid formatting.", err)
 	}
 
-	event := &core.RecordCreateEvent{
-		HttpContext: c,
-		Record:      record,
-	}
+	event := new(core.RecordCreateEvent)
+	event.HttpContext = c
+	event.Collection = collection
+	event.Record = record
 
 	// create the record
-	submitErr := form.Submit(func(next forms.InterceptorNextFunc) forms.InterceptorNextFunc {
-		return func() error {
+	submitErr := form.Submit(func(next forms.InterceptorNextFunc[*models.Record]) forms.InterceptorNextFunc[*models.Record] {
+		return func(m *models.Record) error {
+			event.Record = m
+
 			return api.app.OnRecordBeforeCreateRequest().Trigger(event, func(e *core.RecordCreateEvent) error {
-				if err := next(); err != nil {
+				if err := next(e.Record); err != nil {
 					return NewBadRequestError("Failed to create record.", err)
 				}
 
@@ -241,7 +242,9 @@ func (api *recordApi) create(c echo.Context) error {
 	})
 
 	if submitErr == nil {
-		api.app.OnRecordAfterCreateRequest().Trigger(event)
+		if err := api.app.OnRecordAfterCreateRequest().Trigger(event); err != nil && api.app.IsDebug() {
+			log.Println(err)
+		}
 	}
 
 	return submitErr
@@ -302,16 +305,18 @@ func (api *recordApi) update(c echo.Context) error {
 		return NewBadRequestError("Failed to load the submitted data due to invalid formatting.", err)
 	}
 
-	event := &core.RecordUpdateEvent{
-		HttpContext: c,
-		Record:      record,
-	}
+	event := new(core.RecordUpdateEvent)
+	event.HttpContext = c
+	event.Collection = collection
+	event.Record = record
 
 	// update the record
-	submitErr := form.Submit(func(next forms.InterceptorNextFunc) forms.InterceptorNextFunc {
-		return func() error {
+	submitErr := form.Submit(func(next forms.InterceptorNextFunc[*models.Record]) forms.InterceptorNextFunc[*models.Record] {
+		return func(m *models.Record) error {
+			event.Record = m
+
 			return api.app.OnRecordBeforeUpdateRequest().Trigger(event, func(e *core.RecordUpdateEvent) error {
-				if err := next(); err != nil {
+				if err := next(e.Record); err != nil {
 					return NewBadRequestError("Failed to update record.", err)
 				}
 
@@ -325,7 +330,9 @@ func (api *recordApi) update(c echo.Context) error {
 	})
 
 	if submitErr == nil {
-		api.app.OnRecordAfterUpdateRequest().Trigger(event)
+		if err := api.app.OnRecordAfterUpdateRequest().Trigger(event); err != nil && api.app.IsDebug() {
+			log.Println(err)
+		}
 	}
 
 	return submitErr
@@ -367,10 +374,10 @@ func (api *recordApi) delete(c echo.Context) error {
 		return NewNotFoundError("", fetchErr)
 	}
 
-	event := &core.RecordDeleteEvent{
-		HttpContext: c,
-		Record:      record,
-	}
+	event := new(core.RecordDeleteEvent)
+	event.HttpContext = c
+	event.Collection = collection
+	event.Record = record
 
 	handlerErr := api.app.OnRecordBeforeDeleteRequest().Trigger(event, func(e *core.RecordDeleteEvent) error {
 		// delete the record
@@ -382,7 +389,9 @@ func (api *recordApi) delete(c echo.Context) error {
 	})
 
 	if handlerErr == nil {
-		api.app.OnRecordAfterDeleteRequest().Trigger(event)
+		if err := api.app.OnRecordAfterDeleteRequest().Trigger(event); err != nil && api.app.IsDebug() {
+			log.Println(err)
+		}
 	}
 
 	return handlerErr
