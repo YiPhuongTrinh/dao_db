@@ -1,6 +1,15 @@
+## v0.12.1
+
+- Fixed js error on empty relation save.
+
+- Fixed `overlay-active` css class not being removed on nested overlay panel close ([#1718](https://github.com/pocketbase/pocketbase/issues/1718)).
+
+- Added the collection name in the page title ([#1711](https://github.com/pocketbase/pocketbase/issues/1711)).
+
+
 ## v0.12.0
 
-- Refactored the relation picker UI to allowing server-side search, sorting, create, update and delete of relation records ([#976](https://github.com/pocketbase/pocketbase/issues/976)).
+- Refactored the relation picker UI to allow server-side search, sort, create, update and delete of relation records ([#976](https://github.com/pocketbase/pocketbase/issues/976)).
 
 - Added new `RelationOptions.DisplayFields` option to specify custom relation field(s) visualization in the Admin UI.
 
