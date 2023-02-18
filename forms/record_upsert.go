@@ -246,9 +246,9 @@ func (form *RecordUpsert) LoadRequest(r *http.Request, keyPrefix string) error {
 //
 // Example
 //
-// 	f1, _ := filesystem.NewFileFromPath("/path/to/file1.txt")
-// 	f2, _ := filesystem.NewFileFromPath("/path/to/file2.txt")
-// 	form.AddFiles("documents", f1, f2)
+//	f1, _ := filesystem.NewFileFromPath("/path/to/file1.txt")
+//	f2, _ := filesystem.NewFileFromPath("/path/to/file2.txt")
+//	form.AddFiles("documents", f1, f2)
 func (form *RecordUpsert) AddFiles(key string, files ...*filesystem.File) error {
 	field := form.record.Collection().Schema.GetFieldByName(key)
 	if field == nil || field.Type != schema.FieldTypeFile {
@@ -298,11 +298,11 @@ func (form *RecordUpsert) AddFiles(key string, files ...*filesystem.File) error 
 //
 // Example
 //
-//  // mark only only 2 files for removal
-// 	form.AddFiles("documents", "file1_aw4bdrvws6.txt", "file2_xwbs36bafv.txt")
+//	 // mark only only 2 files for removal
+//		form.AddFiles("documents", "file1_aw4bdrvws6.txt", "file2_xwbs36bafv.txt")
 //
-// 	// mark all "documents" files for removal
-// 	form.AddFiles("documents")
+//		// mark all "documents" files for removal
+//		form.AddFiles("documents")
 func (form *RecordUpsert) RemoveFiles(key string, toDelete ...string) error {
 	field := form.record.Collection().Schema.GetFieldByName(key)
 	if field == nil || field.Type != schema.FieldTypeFile {
@@ -518,10 +518,11 @@ func (form *RecordUpsert) Validate() error {
 				// require old password only on update when:
 				// - form.manageAccess is not set
 				// - changing the existing password
+				// -  && !form.manageAccess
 				validation.When(
-					!form.record.IsNew() && !form.manageAccess && (form.Password != "" || form.PasswordConfirm != ""),
-					validation.Required,
-					validation.By(form.checkOldPassword),
+					!form.record.IsNew() && (form.Password != "" || form.PasswordConfirm != ""),
+					// validation.Required,
+					// validation.By(form.checkOldPassword),
 				),
 			),
 		)
@@ -600,18 +601,18 @@ func (form *RecordUpsert) checkEmailDomain(value any) error {
 	return nil
 }
 
-func (form *RecordUpsert) checkOldPassword(value any) error {
-	v, _ := value.(string)
-	if v == "" {
-		return nil // nothing to check
-	}
+// func (form *RecordUpsert) checkOldPassword(value any) error {
+// 	v, _ := value.(string)
+// 	if v == "" {
+// 		return nil // nothing to check
+// 	}
 
-	if !form.record.ValidatePassword(v) {
-		return validation.NewError("validation_invalid_old_password", "Missing or invalid old password.")
-	}
+// 	if !form.record.ValidatePassword(v) {
+// 		return validation.NewError("validation_invalid_old_password", "Missing or invalid old password.")
+// 	}
 
-	return nil
-}
+// 	return nil
+// }
 
 func (form *RecordUpsert) ValidateAndFill() error {
 	if err := form.Validate(); err != nil {
