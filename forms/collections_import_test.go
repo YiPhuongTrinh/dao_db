@@ -206,7 +206,7 @@ func TestCollectionsImportSubmit(t *testing.T) {
 			expectError:            true,
 			expectCollectionsCount: totalCollections,
 			expectEvents: map[string]int{
-				"OnModelBeforeDelete": 5,
+				"OnModelBeforeDelete": 7,
 			},
 		},
 		{
@@ -215,7 +215,7 @@ func TestCollectionsImportSubmit(t *testing.T) {
 				"collections": [
 					{
 						"id":"sz5l5z67tg7gku0",
-						"name":"demo2",
+						"name":"demo2_rename",
 						"schema":[
 							{
 								"id":"_2hlxbmp",
@@ -345,6 +345,74 @@ func TestCollectionsImportSubmit(t *testing.T) {
 				"OnModelAfterCreate":  1,
 				"OnModelBeforeDelete": totalCollections - 2,
 				"OnModelAfterDelete":  totalCollections - 2,
+			},
+		},
+		{
+			name: "lazy system table name error",
+			jsonData: `{
+				"collections": [
+					{
+						"name": "_admins",
+						"schema": [
+							{
+								"id":"fz6iql2m",
+								"name":"active",
+								"type":"bool"
+							}
+						]
+					}
+				]
+			}`,
+			expectError:            true,
+			expectCollectionsCount: totalCollections,
+			expectEvents: map[string]int{
+				"OnModelBeforeCreate": 1,
+			},
+		},
+		{
+			name: "lazy view evaluation",
+			jsonData: `{
+				"collections": [
+					{
+						"name": "view_before",
+						"type": "view",
+						"options": {
+							"query": "select id, active from base_test"
+						}
+					},
+					{
+						"name": "base_test",
+						"schema": [
+							{
+								"id":"fz6iql2m",
+								"name":"active",
+								"type":"bool"
+							}
+						]
+					},
+					{
+						"name": "view_after_new",
+						"type": "view",
+						"options": {
+							"query": "select id, active from base_test"
+						}
+					},
+					{
+						"name": "view_after_old",
+						"type": "view",
+						"options": {
+							"query": "select id from demo1"
+						}
+					}
+				]
+			}`,
+			expectError:            false,
+			expectCollectionsCount: totalCollections + 4,
+			expectEvents: map[string]int{
+				"OnModelBeforeUpdate": 3,
+				"OnModelAfterUpdate":  3,
+				"OnModelBeforeCreate": 4,
+				"OnModelAfterCreate":  4,
 			},
 		},
 	}

@@ -45,12 +45,12 @@
     <svelte:fragment slot="header">
         <div class="inline-flex">
             {#if icon}
-                <i class={icon} />
+                <i class={icon} class:txt-hint={!config.enabled} />
             {/if}
             <span class="txt">{title}</span>
-            <code title="Provider key">
-                {key.substring(0, key.length - 4)}
-            </code>
+            <em class="txt-hint">
+                ({key.substring(0, key.length - 4)})
+            </em>
         </div>
 
         <div class="flex-fill" />
@@ -96,7 +96,7 @@
                 name="{key}.clientSecret"
                 let:uniqueId
             >
-                <label for={uniqueId}>Client Secret</label>
+                <label for={uniqueId}>Client secret</label>
                 <RedactedPasswordInput
                     bind:value={config.clientSecret}
                     id={uniqueId}

@@ -729,6 +729,8 @@ func (form *RecordUpsert) DrySubmit(callback func(txDao *daos.Dao) error) error 
 // You can optionally provide a list of InterceptorFunc to further
 // modify the form behavior before persisting it.
 func (form *RecordUpsert) Submit(interceptors ...InterceptorFunc[*models.Record]) error {
+	oldRecord := form.record.OriginalCopy()
+
 	if err := form.ValidateAndFill(); err != nil {
 		return err
 	}
@@ -742,12 +744,31 @@ func (form *RecordUpsert) Submit(interceptors ...InterceptorFunc[*models.Record]
 		}
 
 		// persist the record model
-		if saveErr := form.dao.SaveRecord(form.record); saveErr != nil {
-			return fmt.Errorf("failed to save the record: %w", saveErr)
+		if err := form.dao.SaveRecord(form.record); err != nil {
+			preparedErr := form.prepareError(err)
+			if _, ok := preparedErr.(validation.Errors); ok {
+				return preparedErr
+			}
+			return fmt.Errorf("failed to save the record: %w", err)
 		}
 
 		// upload new files (if any)
+		//
+		// note1: executed outside of transaction to avoid keeping a lock for too long
+		// note2: executed after the record save to allow record id change with a before model hook
 		if err := form.processFilesToUpload(); err != nil {
+			if oldRecord.IsNew() {
+				// delete previously inserted record
+				if err := form.dao.DeleteRecord(form.record); err != nil && form.app.IsDebug() {
+					log.Println(err)
+				}
+			} else {
+				// revert record changes
+				if err := form.dao.SaveRecord(oldRecord); err != nil && form.app.IsDebug() {
+					log.Println(err)
+				}
+			}
+
 			return fmt.Errorf("failed to process the uploaded files: %w", err)
 		}
 
@@ -849,4 +870,31 @@ func (form *RecordUpsert) deleteFilesByNamesList(filenames []string) ([]string, 
 	}
 
 	return filenames, nil
+}
+
+// prepareError parses the provided error and tries to return
+// user-friendly validation error(s).
+func (form *RecordUpsert) prepareError(err error) error {
+	msg := strings.ToLower(err.Error())
+
+	validationErrs := validation.Errors{}
+
+	// check for unique constraint failure
+	if strings.Contains(msg, "unique constraint failed") {
+		msg = strings.ReplaceAll(strings.TrimSpace(msg), ",", " ")
+
+		c := form.record.Collection()
+		for _, f := range c.Schema.Fields() {
+			// blank space to unify multi-columns lookup
+			if strings.Contains(msg+" ", fmt.Sprintf("%s.%s ", strings.ToLower(c.Name), f.Name)) {
+				validationErrs[f.Name] = validation.NewError("validation_not_unique", "Value must be unique")
+			}
+		}
+	}
+
+	if len(validationErrs) > 0 {
+		return validationErrs
+	}
+
+	return err
 }
