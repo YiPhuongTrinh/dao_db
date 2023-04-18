@@ -1,3 +1,40 @@
+## v0.14.5
+
+- Added checks for `nil` hooks in `forms.RecordUpsert` when used with custom `Dao` ([#2277](https://github.com/pocketbase/pocketbase/issues/2277)).
+
+- Fixed unique detailed field error not returned on record create failure ([#2287](https://github.com/pocketbase/pocketbase/discussions/2287)).
+
+
+## v0.14.4
+
+- Fixed concurrent map write pannic on `list.ExistInSliceWithRegex()` cache ([#2272](https://github.com/pocketbase/pocketbase/issues/2272)).
+
+
+## v0.14.3
+
+- Fixed Admin UI Logs `meta` visualization in Firefox ([#2221](https://github.com/pocketbase/pocketbase/issues/2221)).
+
+- Downgraded to v1 of the `aws/aws-sdk-go` package since v2 has compatibility issues with GCS ([#2231](https://github.com/pocketbase/pocketbase/issues/2231)).
+
+- Upgraded the GitHub action to use [min Go 1.20.3](https://github.com/golang/go/issues?q=milestone%3AGo1.20.3+label%3ACherryPickApproved) for the prebuilt executable since it contains some minor `net/http` security fixes.
+
+
+## v0.14.2
+
+- Reverted part of the old `COALESCE` handling as a fallback to support empty string comparison with missing joined relation fields.
+
+
+## v0.14.1
+
+- Fixed realtime events firing before the files upload completion.
+
+- Updated the underlying S3 lib to use `aws-sdk-go-v2` ([#1346](https://github.com/pocketbase/pocketbase/pull/1346); thanks @yuxiang-gao).
+
+- Updated TinyMCE to v6.4.1.
+
+- Updated the godoc of `Dao.Save*` methods.
+
+
 ## v0.14.0
 
 - Added _experimental_ Apple OAuth2 integration.
