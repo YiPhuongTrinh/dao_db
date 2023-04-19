@@ -293,7 +293,6 @@ button {
             height: var(--loaderSize);
             line-height: var(--loaderSize);
             font-size: var(--loaderSize);
-            font-weight: normal;
             color: inherit;
             text-align: center;
             font-weight: normal;
@@ -343,6 +342,23 @@ button {
     display: inline-flex;
     align-items: center;
     gap: var(--xsSpacing);
+    &.no-gap {
+        gap: 0;
+        > * {
+            border-radius: 0;
+            min-width: 0;
+            box-shadow: -1px 0px 0px 0px rgba(#fff, 0.1);
+        }
+        > *:first-child {
+            border-top-left-radius: var(--btnRadius);
+            border-bottom-left-radius: var(--btnRadius);
+            box-shadow: none;
+        }
+        > *:last-child {
+            border-top-right-radius: var(--btnRadius);
+            border-bottom-right-radius: var(--btnRadius);
+        }
+    }
 }
 
 %input {
@@ -478,8 +494,6 @@ select {
         }
         i {
             font-size: 0.96rem;
-            line-height: 1;
-            margin-top: -1px;
             margin-bottom: -1px;
             &:before {
                 margin: 0;
@@ -1076,6 +1090,8 @@ select {
 }
 
 .form-field-list {
+    border-radius: var(--baseRadius);
+    transition: box-shadow var(--baseAnimationSpeed);
     label {
         padding-bottom: 10px;
     }
@@ -1085,6 +1101,7 @@ select {
         border-radius: 0;
         border-bottom-left-radius: var(--baseRadius);
         border-bottom-right-radius: var(--baseRadius);
+        transition: background var(--baseAnimationSpeed);
         .list-item {
             border-top: 1px solid var(--baseAlt2Color);
             &.selected {
@@ -1105,6 +1122,9 @@ select {
         .list, label {
             background: var(--baseAlt1Color);
         }
+    }
+    &.dragover {
+        box-shadow: 0px 0px 0px 2px var(--warningColor);
     }
 }
 

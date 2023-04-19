@@ -1,5 +1,6 @@
 <script>
     import { createEventDispatcher, tick } from "svelte";
+    import { slide } from "svelte/transition";
     import { Record } from "pocketbase";
     import CommonHelper from "@/utils/CommonHelper";
     import ApiClient from "@/utils/ApiClient";
@@ -25,23 +26,25 @@
     import ExternalAuthsList from "@/components/records/ExternalAuthsList.svelte";
 
     const dispatch = createEventDispatcher();
-
     const formId = "record_" + CommonHelper.randomString(5);
-    const TAB_FORM = "form";
-    const TAB_PROVIDERS = "providers";
+    const tabFormKey = "form";
+    const tabProviderKey = "providers";
 
     export let collection;
 
     let recordPanel;
     let original = null;
-    let record = new Record();
+    let record = null;
+    let initialDraft = null;
     let isSaving = false;
     let confirmClose = false; // prevent close recursion
     let uploadedFilesMap = {}; // eg.: {"field1":[File1, File2], ...}
     let deletedFileIndexesMap = {}; // eg.: {"field1":[0, 1], ...}
-    let initialFormHash = "";
-    let activeTab = TAB_FORM;
+    let originalSerializedData = JSON.stringify(null);
+    let serializedData = originalSerializedData;
+    let activeTab = tabFormKey;
     let isNew = true;
+    let isLoaded = false;
 
     $: hasEditorField = !!collection?.schema?.find((f) => f.type === "editor");
 
@@ -49,18 +52,24 @@
         CommonHelper.hasNonEmptyProps(uploadedFilesMap) ||
         CommonHelper.hasNonEmptyProps(deletedFileIndexesMap);
 
-    $: hasChanges = hasFileChanges || initialFormHash != calculateFormHash(record);
+    $: serializedData = JSON.stringify(record);
+
+    $: hasChanges = hasFileChanges || originalSerializedData != serializedData;
 
     $: isNew = !original || original.isNew;
 
     $: canSave = isNew || hasChanges;
+
+    $: if (isLoaded) {
+        updateDraft(serializedData);
+    }
 
     export function show(model) {
         load(model);
 
         confirmClose = true;
 
-        activeTab = TAB_FORM;
+        activeTab = tabFormKey;
 
         return recordPanel?.show();
     }
@@ -70,24 +79,79 @@
     }
 
     async function load(model) {
+        isLoaded = false;
         setErrors({}); // reset errors
         original = model || new Record();
-        if (model?.$clone) {
-            record = model.$clone();
-        } else {
-            record = new Record();
-        }
+        record = original.$clone();
         uploadedFilesMap = {};
         deletedFileIndexesMap = {};
-        await tick(); // wait to populate the fields to get the normalized values
-        initialFormHash = calculateFormHash(record);
+
+        // wait to populate the fields to get the normalized values
+        await tick();
+
+        initialDraft = getDraft();
+        if (!initialDraft || areRecordsEqual(record, initialDraft)) {
+            initialDraft = null;
+        } else {
+            delete initialDraft.password;
+            delete initialDraft.passwordConfirm;
+        }
+
+        originalSerializedData = JSON.stringify(record);
+        isLoaded = true;
     }
 
-    function calculateFormHash(m) {
-        return JSON.stringify(m);
+    function draftKey() {
+        return "record_draft_" + (collection?.id || "") + "_" + (original?.id || "");
     }
 
-    function save() {
+    function getDraft(fallbackRecord) {
+        try {
+            const raw = window.localStorage.getItem(draftKey());
+            if (raw) {
+                return new Record(JSON.parse(raw));
+            }
+        } catch (_) {}
+
+        return fallbackRecord;
+    }
+
+    function updateDraft(newSerializedData) {
+        window.localStorage.setItem(draftKey(), newSerializedData);
+    }
+
+    function restoreDraft() {
+        if (initialDraft) {
+            record = initialDraft;
+            initialDraft = null;
+        }
+    }
+
+    function areRecordsEqual(recordA, recordB) {
+        const cloneA = recordA?.$clone();
+        const cloneB = recordB?.$clone();
+
+        const fileFields = collection?.schema?.filter((f) => f.type === "file");
+        for (let field of fileFields) {
+            delete cloneA?.[field.name];
+            delete cloneB?.[field.name];
+        }
+
+        // delete password props
+        delete cloneA?.password;
+        delete cloneA?.passwordConfirm;
+        delete cloneB?.password;
+        delete cloneB?.passwordConfirm;
+
+        return JSON.stringify(cloneA) == JSON.stringify(cloneB);
+    }
+
+    function deleteDraft() {
+        initialDraft = null;
+        window.localStorage.removeItem(draftKey());
+    }
+
+    function save(hidePanel = true) {
         if (isSaving || !canSave || !collection?.id) {
             return;
         }
@@ -106,8 +170,13 @@
         request
             .then((result) => {
                 addSuccessToast(isNew ? "Successfully created record." : "Successfully updated record.");
-                confirmClose = false;
-                hide();
+                deleteDraft();
+                if (hidePanel) {
+                    confirmClose = false;
+                    hide();
+                } else {
+                    show(result);
+                }
                 dispatch("save", result);
             })
             .catch((err) => {
@@ -253,11 +322,20 @@
             }
         }
 
+        deleteDraft();
         show(clone);
 
         await tick();
 
-        initialFormHash = "";
+        originalSerializedData = "";
+    }
+
+    function handleFormKeydown(e) {
+        if (e.ctrlKey && e.code == "KeyS") {
+            e.preventDefault();
+            e.stopPropagation();
+            save(false);
+        }
     }
 </script>
 
@@ -266,7 +344,7 @@
     class="
         record-panel
         {hasEditorField ? 'overlay-panel-xl' : 'overlay-panel-lg'}
-        {collection?.isAuth && !isNew ? 'colored-header' : ''}
+        {collection?.$isAuth && !isNew ? 'colored-header' : ''}
     "
     beforeHide={() => {
         if (hasChanges && confirmClose) {
@@ -274,16 +352,20 @@
                 confirmClose = false;
                 hide();
             });
+
             return false;
         }
+
         setErrors({});
+        deleteDraft();
+
         return true;
     }}
     on:hide
     on:show
 >
     <svelte:fragment slot="header">
-        <h4>
+        <h4 class="panel-title">
             {isNew ? "New" : "Edit"}
             <strong>{collection?.name}</strong> record
         </h4>
@@ -334,16 +416,16 @@
                 <button
                     type="button"
                     class="tab-item"
-                    class:active={activeTab === TAB_FORM}
-                    on:click={() => (activeTab = TAB_FORM)}
+                    class:active={activeTab === tabFormKey}
+                    on:click={() => (activeTab = tabFormKey)}
                 >
                     Account
                 </button>
                 <button
                     type="button"
                     class="tab-item"
-                    class:active={activeTab === TAB_PROVIDERS}
-                    on:click={() => (activeTab = TAB_PROVIDERS)}
+                    class:active={activeTab === tabProviderKey}
+                    on:click={() => (activeTab = tabProviderKey)}
                 >
                     Authorized providers
                 </button>
@@ -355,10 +437,41 @@
         <form
             id={formId}
             class="tab-item"
-            class:active={activeTab === TAB_FORM}
+            class:active={activeTab === tabFormKey}
             on:submit|preventDefault={save}
+            on:keydown={handleFormKeydown}
         >
-            <Field class="form-field readonly" name="id" let:uniqueId>
+            {#if !hasChanges && initialDraft}
+                <div class="block" out:slide={{ duration: 150 }}>
+                    <div class="alert alert-info m-0">
+                        <div class="icon">
+                            <i class="ri-information-line" />
+                        </div>
+                        <div class="content">
+                            The record has previous unsaved changes.
+                            <button
+                                type="button"
+                                class="btn btn-sm btn-secondary"
+                                on:click={() => restoreDraft()}
+                            >
+                                Restore draft
+                            </button>
+                        </div>
+                        <button
+                            type="button"
+                            class="close"
+                            aria-label="Discard draft"
+                            use:tooltip={"Discard draft"}
+                            on:click|preventDefault={() => deleteDraft()}
+                        >
+                            <i class="ri-close-line" />
+                        </button>
+                    </div>
+                    <div class="clearfix p-b-base" />
+                </div>
+            {/if}
+
+            <Field class="form-field {!isNew ? 'readonly' : ''}" name="id" let:uniqueId>
                 <label for={uniqueId}>
                     <i class={CommonHelper.getFieldTypeIcon("primary")} />
                     <span class="txt">id</span>
@@ -380,13 +493,13 @@
                     id={uniqueId}
                     placeholder="Leave empty to auto generate..."
                     minlength="15"
-                    bind:value={record.id}
                     readonly={!isNew}
+                    bind:value={record.id}
                 />
             </Field>
 
             {#if collection?.isAuth}
-                <AuthFields bind:record {collection} />
+                <AuthFields bind:record {isNew} {collection} />
 
                 {#if collection?.schema?.length}
                     <hr />
@@ -427,7 +540,7 @@
         </form>
 
         {#if collection.$isAuth && !isNew}
-            <div class="tab-item" class:active={activeTab === TAB_PROVIDERS}>
+            <div class="tab-item" class:active={activeTab === tabProviderKey}>
                 <ExternalAuthsList {record} />
             </div>
         {/if}
@@ -449,3 +562,9 @@
         </button>
     </svelte:fragment>
 </OverlayPanel>
+
+<style>
+    .panel-title {
+        line-height: var(--smBtnHeight);
+    }
+</style>

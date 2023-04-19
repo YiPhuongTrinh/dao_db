@@ -1,3 +1,28 @@
+## v0.15.0
+
+- Simplified the OAuth2 authentication flow in a single "all in one" call ([#55](https://github.com/pocketbase/pocketbase/issues/55)).
+  Requires JS SDK v0.14.0+ or Dart SDK v0.9.0+.
+  The manual code-token exchange flow is still supported but the SDK methods is renamed to `authWithOAuth2Code()` (_to minimize the breaking changes the JS SDK has a function overload that will proxy the existing `authWithOauth2` calls to `authWithOAuth2Code`_).
+  For more details and example, you could check https://pocketbase.io/docs/authentication/#oauth2-integration.
+
+- Added support for protected files ([#215](https://github.com/pocketbase/pocketbase/issues/215)).
+  Requires JS SDK v0.14.0+ or Dart SDK v0.9.0+.
+  It works with a short lived (~5min) file token passed as query param with the file url.
+  For more details and example, you could check https://pocketbase.io/docs/files-handling/#private-files.
+
+- **!** Fixed typo in `Record.WithUnkownData()` -> `Record.WithUnknownData()`.
+
+- Added simple loose wildcard search term support in the Admin UI.
+
+- Added auto "draft" to allow restoring previous record state in case of accidental reload or power outage.
+
+- Added `Ctrl + S` shortcut to save the record changes without closing the panel.
+
+- Added "drop files" support for the file upload field.
+
+- Refreshed the OAuth2 Admin UI.
+
+
 ## v0.14.5
 
 - Added checks for `nil` hooks in `forms.RecordUpsert` when used with custom `Dao` ([#2277](https://github.com/pocketbase/pocketbase/issues/2277)).
@@ -1171,7 +1196,7 @@ Please check the individual SDK package changelog and apply the necessary change
 - Added option to return serialized custom `models.Record` fields data:
   ```go
   func (m *Record) UnknownData() map[string]any
-  func (m *Record) WithUnkownData(state bool)
+  func (m *Record) WithUnknownData(state bool)
   ```
 
 - Deleted `model.User`. Now the user data is stored as an auth `models.Record`.

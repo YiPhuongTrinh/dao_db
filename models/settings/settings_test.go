@@ -25,10 +25,12 @@ func TestSettingsValidate(t *testing.T) {
 	s.S3.Endpoint = "invalid"
 	s.AdminAuthToken.Duration = -10
 	s.AdminPasswordResetToken.Duration = -10
+	s.AdminFileToken.Duration = -10
 	s.RecordAuthToken.Duration = -10
 	s.RecordPasswordResetToken.Duration = -10
 	s.RecordEmailChangeToken.Duration = -10
 	s.RecordVerificationToken.Duration = -10
+	s.RecordFileToken.Duration = -10
 	s.GoogleAuth.Enabled = true
 	s.GoogleAuth.ClientId = ""
 	s.FacebookAuth.Enabled = true
@@ -79,10 +81,12 @@ func TestSettingsValidate(t *testing.T) {
 		`"s3":{`,
 		`"adminAuthToken":{`,
 		`"adminPasswordResetToken":{`,
+		`"adminFileToken":{`,
 		`"recordAuthToken":{`,
 		`"recordPasswordResetToken":{`,
 		`"recordEmailChangeToken":{`,
 		`"recordVerificationToken":{`,
+		`"recordFileToken":{`,
 		`"googleAuth":{`,
 		`"facebookAuth":{`,
 		`"githubAuth":{`,
@@ -125,10 +129,12 @@ func TestSettingsMerge(t *testing.T) {
 	s2.S3.Endpoint = "test"
 	s2.AdminAuthToken.Duration = 1
 	s2.AdminPasswordResetToken.Duration = 2
+	s2.AdminFileToken.Duration = 2
 	s2.RecordAuthToken.Duration = 3
 	s2.RecordPasswordResetToken.Duration = 4
 	s2.RecordEmailChangeToken.Duration = 5
 	s2.RecordVerificationToken.Duration = 6
+	s2.RecordFileToken.Duration = 7
 	s2.GoogleAuth.Enabled = true
 	s2.GoogleAuth.ClientId = "google_test"
 	s2.FacebookAuth.Enabled = true
@@ -227,10 +233,12 @@ func TestSettingsRedactClone(t *testing.T) {
 	s1.S3.Secret = testSecret
 	s1.AdminAuthToken.Secret = testSecret
 	s1.AdminPasswordResetToken.Secret = testSecret
+	s1.AdminFileToken.Secret = testSecret
 	s1.RecordAuthToken.Secret = testSecret
 	s1.RecordPasswordResetToken.Secret = testSecret
 	s1.RecordEmailChangeToken.Secret = testSecret
 	s1.RecordVerificationToken.Secret = testSecret
+	s1.RecordFileToken.Secret = testSecret
 	s1.GoogleAuth.ClientSecret = testSecret
 	s1.FacebookAuth.ClientSecret = testSecret
 	s1.GithubAuth.ClientSecret = testSecret
