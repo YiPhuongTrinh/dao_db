@@ -101,6 +101,29 @@
         isLoaded = true;
     }
 
+    async function replaceOriginal(newOriginal) {
+        setErrors({}); // reset errors
+        original = newOriginal || new Record();
+        uploadedFilesMap = {};
+        deletedFileIndexesMap = {};
+
+        // to avoid layout shifts we replace only the file and non-schema fields
+        const skipFields = collection?.schema?.filter((f) => f.type != "file")?.map((f) => f.name) || [];
+        for (let k in newOriginal.$export()) {
+            if (skipFields.includes(k)) {
+                continue;
+            }
+            record[k] = newOriginal[k];
+        }
+
+        // wait to populate the fields to get the normalized values
+        await tick();
+
+        originalSerializedData = JSON.stringify(record);
+
+        deleteDraft();
+    }
+
     function draftKey() {
         return "record_draft_" + (collection?.id || "") + "_" + (original?.id || "");
     }
@@ -170,13 +193,16 @@
         request
             .then((result) => {
                 addSuccessToast(isNew ? "Successfully created record." : "Successfully updated record.");
+
                 deleteDraft();
+
                 if (hidePanel) {
                     confirmClose = false;
                     hide();
                 } else {
-                    show(result);
+                    replaceOriginal(result);
                 }
+
                 dispatch("save", result);
             })
             .catch((err) => {
@@ -331,7 +357,7 @@
     }
 
     function handleFormKeydown(e) {
-        if (e.ctrlKey && e.code == "KeyS") {
+        if ((e.ctrlKey || e.metaKey) && e.code == "KeyS") {
             e.preventDefault();
             e.stopPropagation();
             save(false);

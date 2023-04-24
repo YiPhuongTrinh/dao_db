@@ -1,3 +1,18 @@
+## v0.15.1
+
+- Trigger the related `Record` model realtime subscription events on [custom model struct](https://pocketbase.io/docs/custom-models/) save ([#2325](https://github.com/pocketbase/pocketbase/discussions/2325)).
+
+- Fixed `Ctrl + S` in the `editor` field not propagating the quick save shortcut to the parent form.
+
+- Added `⌘ + S` alias for the record quick save shortcut (_I have no Mac device to test it but it should work based on [`e.metaKey` docs](https://developer.mozilla.org/en-US/docs/Web/API/KeyboardEvent/metaKey)_).
+
+- Enabled RTL for the TinyMCE editor ([#2327](https://github.com/pocketbase/pocketbase/issues/2327)).
+
+- Reduced the record form vertical layout shifts and slightly improved the rendering speed when loading multiple `relation` fields.
+
+- Enabled Admin UI assets cache.
+
+
 ## v0.15.0
 
 - Simplified the OAuth2 authentication flow in a single "all in one" call ([#55](https://github.com/pocketbase/pocketbase/issues/55)).

@@ -1,4 +1,5 @@
 <script>
+    import { onDestroy } from "svelte";
     import { SchemaField } from "pocketbase";
     import CommonHelper from "@/utils/CommonHelper";
     import ApiClient from "@/utils/ApiClient";
@@ -16,6 +17,7 @@
     let fieldRef;
     let list = [];
     let isLoading = false;
+    let loadTimeoutId;
 
     $: isMultiple = field.options?.maxSelect != 1;
 
@@ -23,13 +25,33 @@
         fieldRef?.changed();
     }
 
-    load();
+    $: if (needLoad(list, value)) {
+        // Move the load function to the end of the execution queue.
+        //
+        // It helps reducing the layout shifts (the relation field has fixed height skeleton loader)
+        // and allows the other form fields to load sooner.
+        clearTimeout(loadTimeoutId);
+        loadTimeoutId = setTimeout(load, 0);
+    }
+
+    function needLoad() {
+        if (isLoading) {
+            return false;
+        }
+
+        const ids = CommonHelper.toArray(value);
+
+        list = list.filter((item) => ids.includes(item.id));
+
+        return ids.length != list.length;
+    }
 
     async function load() {
         const ids = CommonHelper.toArray(value);
 
+        list = []; // reset
+
         if (!field?.options?.collectionId || !ids.length) {
-            list = [];
             isLoading = false;
             return;
         }
@@ -85,6 +107,10 @@
             value = list[0]?.id || "";
         }
     }
+
+    onDestroy(() => {
+        clearTimeout(loadTimeoutId);
+    });
 </script>
 
 <Field
@@ -100,7 +126,7 @@
 
     <div class="list">
         <div class="relations-list">
-            {#each list as record}
+            {#each list as record (record.id)}
                 <div class="list-item">
                     <div class="content">
                         <RecordInfo {record} displayFields={field.options?.displayFields} />
