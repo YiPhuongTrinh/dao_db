@@ -395,8 +395,7 @@ func TestCreateViewSchema(t *testing.T) {
 				created created_alias,
 				updated updated_alias,
 				123 as custom
-			from demo1
-			`,
+			from demo1`,
 			false,
 			map[string]string{
 				"id2":           schema.FieldTypeRelation,
@@ -407,6 +406,37 @@ func TestCreateViewSchema(t *testing.T) {
 				"created_alias": schema.FieldTypeDate,
 				"updated_alias": schema.FieldTypeDate,
 				"custom":        schema.FieldTypeJson,
+			},
+		},
+		{
+			"query with distinct and reordered id column",
+			`select distinct
+				id as id2,
+				id,
+				123 as custom
+			from demo1`,
+			false,
+			map[string]string{
+				"id2":    schema.FieldTypeRelation,
+				"custom": schema.FieldTypeJson,
+			},
+		},
+		{
+			"query with aliasing the same field multiple times",
+			`select
+				a.id as id,
+				a.text as alias1,
+				a.text as alias2,
+				b.text as alias3,
+				b.text as alias4
+			from demo1 a
+			left join demo1 as b`,
+			false,
+			map[string]string{
+				"alias1": schema.FieldTypeText,
+				"alias2": schema.FieldTypeText,
+				"alias3": schema.FieldTypeText,
+				"alias4": schema.FieldTypeText,
 			},
 		},
 	}

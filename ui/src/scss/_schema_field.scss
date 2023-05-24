@@ -1,34 +1,37 @@
-.schema-field {
-    @extend %block;
-    position: relative;
-    margin: 0 0 var(--xsSpacing);
-    &.drag-over {
-        opacity: 0.5;
-    }
-}
 .schema-field-header {
+    $minHeight: 42px;
     position: relative;
     display: flex;
     width: 100%;
-    gap: 10px;
+    min-height: $minHeight;
+    gap: 5px;
+    padding: 0 5px;
     align-items: center;
     justify-content: stretch;
-    %input,
-    .form-field-addon {
-        min-height: var(--btnHeight);
-    }
+    background: var(--baseAlt1Color);
+    border-radius: var(--baseRadius);
+    transition: border-radius var(--baseAnimationSpeed);
     .form-field {
         margin: 0;
+        .form-field-addon.prefix {
+            left: 10px;
+            ~ %input {
+                padding-left: 37px;
+            }
+        }
     }
     .options-trigger {
+        padding: 2px;
+        margin: 0 3px;
         i {
             transition: transform var(--baseAnimationSpeed);
         }
-        &.active {
-            i {
-                transform: rotate(58deg);
-            }
-        }
+    }
+    .separator {
+        flex-shrink: 0;
+        width: 1px;
+        height: $minHeight;
+        background: rgba(#000, 0.05);
     }
     .drag-handle-wrapper {
         position: absolute;
@@ -56,8 +59,8 @@
     .markers {
         position: absolute;
         z-index: 1;
-        left: 7px;
-        top: 6px;
+        left: 4px;
+        top: 4px;
         display: inline-flex;
         align-items: center;
         gap: 5px;
@@ -70,25 +73,61 @@
             background: var(--baseAlt4Color);
         }
     }
+}
 
+.schema-field-options {
+    background: #fff;
+    padding: var(--xsSpacing);
+    border-bottom-left-radius: var(--baseRadius);
+    border-bottom-right-radius: var(--baseRadius);
+}
+
+.schema-field {
+    @extend %block;
+    position: relative;
+    margin: 0 0 var(--xsSpacing);
+    border-radius: var(--baseRadius);
+    background: var(--baseAlt1Color);
+    transition: border var(--baseAnimationSpeed),
+                box-shadow var(--baseAnimationSpeed);
+    border: 2px solid var(--baseAlt1Color);
     // states
-    &:hover,
-    &:active {
+    &:not(.deleted):hover {
         .drag-handle {
             transform: translateX(0px);
             @include show();
         }
     }
-}
-.schema-field-dropdown {
-    padding: var(--smSpacing);
-    max-height: none;
-    overflow: visible;
-    z-index: 999;
-}
-.schema-field-options {
-    margin-top: -10px;
-    background: var(--bodyColor);
-    padding: var(--smSpacing);
-    border-radius: var(--baseRadius);
+    &.drag-over {
+        opacity: 0.5;
+    }
+    &.expanded {
+        @include shadowize();
+        border-color: var(--baseAlt2Color);
+        .schema-field-header {
+            border-bottom-left-radius: 0;
+            border-bottom-right-radius: 0;
+            .options-trigger {
+                i {
+                    transform: rotate(-60deg);
+                }
+            }
+        }
+        .schema-field-options {
+            border-top: 2px solid var(--baseAlt2Color);
+        }
+    }
+    &.deleted {
+        .schema-field-header {
+            background: var(--bodyColor);
+        }
+        .markers,
+        .separator {
+            opacity: 0.5;
+        }
+        %input {
+            background: none;
+            box-shadow: none;
+        }
+    }
 }

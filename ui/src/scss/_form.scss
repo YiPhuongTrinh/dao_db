@@ -15,6 +15,7 @@ button {
     position: relative;
     z-index: 1;
     display: inline-flex;
+    vertical-align: top;
     align-items: center;
     justify-content: center;
     outline: 0;
@@ -238,6 +239,8 @@ button {
         }
     }
     &.btn-xs {
+        padding-left: 7px;
+        padding-right: 7px;
         min-width: var(--xsBtnHeight);
         min-height: var(--xsBtnHeight);
     }
@@ -955,8 +958,9 @@ select {
     &:not(.disabled) .selected-container:hover {
         cursor: pointer;
     }
+    &.readonly,
     &.disabled {
-        color: var(--txtDisabledColor);
+        color: var(--txtHintColor);
         pointer-events: none;
         .txt-placeholder {
             color: inherit;
@@ -977,6 +981,9 @@ select {
                 cursor: inherit;
             }
         }
+    }
+    &.disabled {
+        color: var(--txtDisabledColor);
     }
 
     // dropdown
@@ -1104,6 +1111,13 @@ select {
         transition: background var(--baseAnimationSpeed);
         .list-item {
             border-top: 1px solid var(--baseAlt2Color);
+            &:hover,
+            &:focus,
+            &:focus-within,
+            &:focus-visible,
+            &:active {
+                background: none;
+            }
             &.selected {
                 background: var(--baseAlt2Color);
             }
@@ -1116,6 +1130,13 @@ select {
                     background: var(--baseAlt3Color);
                 }
             }
+            &.dragging {
+                z-index: 9;
+                box-shadow: inset 0 0 0 1px var(--baseAlt3Color);
+            }
+            &.dragover {
+                background: var(--baseAlt2Color);
+            }
         }
     }
     &:focus-within {
@@ -1123,7 +1144,7 @@ select {
             background: var(--baseAlt1Color);
         }
     }
-    &.dragover {
+    &.dragover:not(:has(.dragging)) {
         box-shadow: 0px 0px 0px 2px var(--warningColor);
     }
 }
@@ -1210,6 +1231,7 @@ select {
     }
     .form-field label ~ & {
         position: relative;
+        z-index: auto; // reset default z-index
         padding: 5px 2px 2px 2px;
         // blank placeholder
         &:before {
@@ -1250,6 +1272,11 @@ body {
     .tox-swatch:not(.tox-swatch--remove):not(.tox-collection__item--enabled) {
         svg {
             display: none;
+        }
+    }
+    &.tox-fullscreen {
+        .overlay-panel-section {
+            overflow: hidden;
         }
     }
 }

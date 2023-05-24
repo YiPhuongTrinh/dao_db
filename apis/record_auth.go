@@ -190,9 +190,10 @@ func (api *recordAuthApi) authWithOAuth2(c echo.Context) error {
 
 	form.SetBeforeNewRecordCreateFunc(func(createForm *forms.RecordUpsert, authRecord *models.Record, authUser *auth.AuthUser) error {
 		return createForm.DrySubmit(func(txDao *daos.Dao) error {
-			requestData := RequestData(c)
-			requestData.Data = form.CreateData
 			event.IsNewRecord = true
+			// clone the current request data and assign the form create data as its body data
+			requestData := *RequestData(c)
+			requestData.Data = form.CreateData
 
 			createRuleFunc := func(q *dbx.SelectQuery) error {
 				admin, _ := c.Get(ContextAdminKey).(*models.Admin)
@@ -205,7 +206,7 @@ func (api *recordAuthApi) authWithOAuth2(c echo.Context) error {
 				}
 
 				if *collection.CreateRule != "" {
-					resolver := resolvers.NewRecordFieldResolver(txDao, collection, requestData, true)
+					resolver := resolvers.NewRecordFieldResolver(txDao, collection, &requestData, true)
 					expr, err := search.FilterData(*collection.CreateRule).BuildExpr(resolver)
 					if err != nil {
 						return err
@@ -242,7 +243,15 @@ func (api *recordAuthApi) authWithOAuth2(c echo.Context) error {
 				e.Record = data.Record
 				e.OAuth2User = data.OAuth2User
 
-				return RecordAuthResponse(api.app, e.HttpContext, e.Record, e.OAuth2User)
+				meta := struct {
+					*auth.AuthUser
+					IsNew bool `json:"isNew"`
+				}{
+					AuthUser: e.OAuth2User,
+					IsNew:    event.IsNewRecord,
+				}
+
+				return RecordAuthResponse(api.app, e.HttpContext, e.Record, meta)
 			})
 		}
 	})
@@ -642,9 +651,13 @@ func (api *recordAuthApi) oauth2SubscriptionRedirect(c echo.Context) error {
 	state := c.QueryParam("state")
 	code := c.QueryParam("code")
 
+	if code == "" || state == "" {
+		return NewBadRequestError("Invalid OAuth2 redirect parameters.", nil)
+	}
+
 	client, err := api.app.SubscriptionsBroker().ClientById(state)
 	if err != nil || client.IsDiscarded() || !client.HasSubscription(oauth2SubscriptionTopic) {
-		return NewNotFoundError("Missing or invalid oauth2 subscription client", err)
+		return NewNotFoundError("Missing or invalid OAuth2 subscription client.", err)
 	}
 
 	data := map[string]string{
@@ -654,7 +667,7 @@ func (api *recordAuthApi) oauth2SubscriptionRedirect(c echo.Context) error {
 
 	encodedData, err := json.Marshal(data)
 	if err != nil {
-		return NewBadRequestError("Failed to marshalize oauth2 redirect data", err)
+		return NewBadRequestError("Failed to marshalize OAuth2 redirect data.", err)
 	}
 
 	msg := subscriptions.Message{
@@ -664,5 +677,5 @@ func (api *recordAuthApi) oauth2SubscriptionRedirect(c echo.Context) error {
 
 	client.Channel() <- msg
 
-	return c.Redirect(http.StatusTemporaryRedirect, "/_/#/auth/oauth2-redirect")
+	return c.Redirect(http.StatusTemporaryRedirect, "../_/#/auth/oauth2-redirect")
 }

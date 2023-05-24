@@ -82,18 +82,22 @@
     {...$$restProps}
 >
     <svelte:fragment let:interactive>
+        <div class="separator" />
+
         <Field
-            class="form-field form-field-single-multiple-select {!interactive ? 'disabled' : ''}"
+            class="form-field form-field-single-multiple-select {!interactive ? 'readonly' : ''}"
             inlineError
             let:uniqueId
         >
             <ObjectSelect
                 id={uniqueId}
                 items={isSingleOptions}
-                disabled={!interactive}
+                readonly={!interactive}
                 bind:keyOfSelected={isSingle}
             />
         </Field>
+
+        <div class="separator" />
     </svelte:fragment>
 
     <svelte:fragment slot="options">

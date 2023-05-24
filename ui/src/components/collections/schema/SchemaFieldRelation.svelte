@@ -101,8 +101,10 @@
     {...$$restProps}
 >
     <svelte:fragment let:interactive>
+        <div class="separator" />
+
         <Field
-            class="form-field required {!interactive ? 'disabled' : ''}"
+            class="form-field required {!interactive ? 'readonly' : ''}"
             inlineError
             name="schema.{key}.options.collectionId"
             let:uniqueId
@@ -114,7 +116,7 @@
                 noOptionsText="No collections found"
                 selectionKey="id"
                 items={$collections}
-                disabled={!interactive || field.id}
+                readonly={!interactive || field.id}
                 bind:keyOfSelected={field.options.collectionId}
             >
                 <svelte:fragment slot="afterOptions">
@@ -131,18 +133,22 @@
             </ObjectSelect>
         </Field>
 
+        <div class="separator" />
+
         <Field
-            class="form-field form-field-single-multiple-select {!interactive ? 'disabled' : ''}"
+            class="form-field form-field-single-multiple-select {!interactive ? 'readonly' : ''}"
             inlineError
             let:uniqueId
         >
             <ObjectSelect
                 id={uniqueId}
                 items={isSingleOptions}
-                disabled={!interactive}
+                readonly={!interactive}
                 bind:keyOfSelected={isSingle}
             />
         </Field>
+
+        <div class="separator" />
     </svelte:fragment>
 
     <svelte:fragment slot="options">

@@ -26,7 +26,7 @@
     --warningColor:    #ff944d;
     --warningAltColor: #ffd4b8;
 
-    --overlayColor:   rgba(53, 71, 104, 0.25);
+    --overlayColor:   rgba(53, 71, 104, 0.28);
     --tooltipColor:   rgba(0, 0, 0, 0.85);
     --shadowColor:    rgba(0, 0, 0, 0.06);
 
@@ -58,7 +58,7 @@
     --lgWrapperWidth: 1200px;
 
     --appSidebarWidth: 75px;
-    --pageSidebarWidth: 220px;
+    --pageSidebarWidth: 12.5%;
 
     --baseAnimationSpeed: 150ms;
     --activeAnimationSpeed: 70ms;
@@ -71,6 +71,7 @@
     // https://developer.mozilla.org/en-US/docs/Web/CSS/accent-color
     accent-color: var(--primaryColor);
 }
+
 
 // Maps
 // ----

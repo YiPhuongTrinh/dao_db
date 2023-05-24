@@ -311,6 +311,7 @@ func (dao *Dao) parseQueryToFields(selectQuery string) (map[string]*queryField, 
 
 		if field != nil {
 			clone := *field
+			clone.Id = "" // unset to prevent duplications if the same field is aliased multiple times
 			clone.Name = col.alias
 			result[col.alias] = &queryField{
 				field:      &clone,
@@ -462,6 +463,8 @@ func (p *identifiersParser) parse(selectQuery string) error {
 			skip = false
 			partType = "select"
 			activeBuilder = &selectParts
+		case "distinct":
+			continue // ignore as it is not important for the identifiers parsing
 		case "from":
 			skip = false
 			partType = "from"
@@ -477,7 +480,7 @@ func (p *identifiersParser) parse(selectQuery string) error {
 			partType = "join"
 			activeBuilder = &joinParts
 		case "_discard_":
-			// do nothing...
+			// skip following tokens
 			skip = true
 		default:
 			isJoin := partType == "join"

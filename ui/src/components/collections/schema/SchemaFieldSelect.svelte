@@ -52,8 +52,10 @@
     {...$$restProps}
 >
     <svelte:fragment let:interactive>
+        <div class="separator" />
+
         <Field
-            class="form-field required {!interactive ? 'disabled' : ''}"
+            class="form-field required {!interactive ? 'readonly' : ''}"
             inlineError
             name="schema.{key}.options.values"
             let:uniqueId
@@ -63,23 +65,28 @@
                     id={uniqueId}
                     placeholder="Choices: eg. optionA, optionB"
                     required
-                    disabled={!interactive}
+                    readonly={!interactive}
                     bind:value={field.options.values}
                 />
             </div>
         </Field>
+
+        <div class="separator" />
+
         <Field
-            class="form-field form-field-single-multiple-select {!interactive ? 'disabled' : ''}"
+            class="form-field form-field-single-multiple-select {!interactive ? 'readonly' : ''}"
             inlineError
             let:uniqueId
         >
             <ObjectSelect
                 id={uniqueId}
                 items={isSingleOptions}
-                disabled={!interactive}
+                readonly={!interactive}
                 bind:keyOfSelected={isSingle}
             />
         </Field>
+
+        <div class="separator" />
     </svelte:fragment>
 
     <svelte:fragment slot="options">
