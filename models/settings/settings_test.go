@@ -67,6 +67,12 @@ func TestSettingsValidate(t *testing.T) {
 	s.OIDC3Auth.ClientId = ""
 	s.AppleAuth.Enabled = true
 	s.AppleAuth.ClientId = ""
+	s.InstagramAuth.Enabled = true
+	s.InstagramAuth.ClientId = ""
+	s.VKAuth.Enabled = true
+	s.VKAuth.ClientId = ""
+	s.YandexAuth.Enabled = true
+	s.YandexAuth.ClientId = ""
 
 	// check if Validate() is triggering the members validate methods.
 	err := s.Validate()
@@ -105,6 +111,9 @@ func TestSettingsValidate(t *testing.T) {
 		`"oidc2Auth":{`,
 		`"oidc3Auth":{`,
 		`"appleAuth":{`,
+		`"instagramAuth":{`,
+		`"vkAuth":{`,
+		`"yandexAuth":{`,
 	}
 
 	errBytes, _ := json.Marshal(err)
@@ -172,6 +181,12 @@ func TestSettingsMerge(t *testing.T) {
 	s2.OIDC3Auth.ClientId = "oidc3_test"
 	s2.AppleAuth.Enabled = true
 	s2.AppleAuth.ClientId = "apple_test"
+	s2.InstagramAuth.Enabled = true
+	s2.InstagramAuth.ClientId = "instagram_test"
+	s2.VKAuth.Enabled = true
+	s2.VKAuth.ClientId = "vk_test"
+	s2.YandexAuth.Enabled = true
+	s2.YandexAuth.ClientId = "yandex_test"
 
 	if err := s1.Merge(s2); err != nil {
 		t.Fatal(err)
@@ -259,6 +274,9 @@ func TestSettingsRedactClone(t *testing.T) {
 	s1.OIDC2Auth.ClientSecret = testSecret
 	s1.OIDC3Auth.ClientSecret = testSecret
 	s1.AppleAuth.ClientSecret = testSecret
+	s1.InstagramAuth.ClientSecret = testSecret
+	s1.VKAuth.ClientSecret = testSecret
+	s1.YandexAuth.ClientSecret = testSecret
 
 	s1Bytes, err := json.Marshal(s1)
 	if err != nil {
@@ -314,6 +332,9 @@ func TestNamedAuthProviderConfigs(t *testing.T) {
 	s.OIDC2Auth.ClientId = "oidc2_test"
 	s.OIDC3Auth.ClientId = "oidc3_test"
 	s.AppleAuth.ClientId = "apple_test"
+	s.InstagramAuth.ClientId = "instagram_test"
+	s.VKAuth.ClientId = "vk_test"
+	s.YandexAuth.ClientId = "yandex_test"
 
 	result := s.NamedAuthProviderConfigs()
 
@@ -342,6 +363,9 @@ func TestNamedAuthProviderConfigs(t *testing.T) {
 		`"oidc2":{"enabled":false,"clientId":"oidc2_test"`,
 		`"oidc3":{"enabled":false,"clientId":"oidc3_test"`,
 		`"apple":{"enabled":false,"clientId":"apple_test"`,
+		`"instagram":{"enabled":false,"clientId":"instagram_test"`,
+		`"vk":{"enabled":false,"clientId":"vk_test"`,
+		`"yandex":{"enabled":false,"clientId":"yandex_test"`,
 	}
 	for _, p := range expectedParts {
 		if !strings.Contains(encodedStr, p) {

@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"errors"
-	"fmt"
 	"regexp"
 	"strings"
 	"testing"
@@ -19,7 +18,7 @@ import (
 	"github.com/pocketbase/pocketbase/tools/types"
 )
 
-func TestRecordQuery(t *testing.T) {
+func TestRecordQueryWithDifferentCollectionValues(t *testing.T) {
 	app, _ := tests.NewTestApp()
 	defer app.Cleanup()
 
@@ -28,11 +27,33 @@ func TestRecordQuery(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	expected := fmt.Sprintf("SELECT `%s`.* FROM `%s`", collection.Name, collection.Name)
+	scenarios := []struct {
+		name          any
+		collection    any
+		expectedTotal int
+		expectError   bool
+	}{
+		{"with nil value", nil, 0, true},
+		{"with invalid or missing collection id/name", "missing", 0, true},
+		{"with pointer model", collection, 3, false},
+		{"with value model", *collection, 3, false},
+		{"with name", "demo1", 3, false},
+		{"with id", "wsmn24bux7wo113", 3, false},
+	}
 
-	sql := app.Dao().RecordQuery(collection).Build().SQL()
-	if sql != expected {
-		t.Errorf("Expected sql %s, got %s", expected, sql)
+	for _, s := range scenarios {
+		var records []*models.Record
+		err := app.Dao().RecordQuery(s.collection).All(&records)
+
+		hasErr := err != nil
+		if hasErr != s.expectError {
+			t.Errorf("[%s] Expected hasError %v, got %v", s.name, s.expectError, hasErr)
+			continue
+		}
+
+		if total := len(records); total != s.expectedTotal {
+			t.Errorf("[%s] Expected %d records, got %d", s.name, s.expectedTotal, total)
+		}
 	}
 }
 
@@ -401,6 +422,350 @@ func TestFindFirstRecordByData(t *testing.T) {
 
 		if !scenario.expectError && record.Id != scenario.expectId {
 			t.Errorf("(%d) Expected record with id %s, got %v", i, scenario.expectId, record.Id)
+		}
+	}
+}
+
+func TestFindRecordsByFilter(t *testing.T) {
+	app, _ := tests.NewTestApp()
+	defer app.Cleanup()
+
+	scenarios := []struct {
+		name               string
+		collectionIdOrName string
+		filter             string
+		sort               string
+		limit              int
+		expectError        bool
+		expectRecordIds    []string
+	}{
+		{
+			"missing collection",
+			"missing",
+			"id != ''",
+			"",
+			0,
+			true,
+			nil,
+		},
+		{
+			"missing filter",
+			"demo2",
+			"",
+			"",
+			0,
+			true,
+			nil,
+		},
+		{
+			"invalid filter",
+			"demo2",
+			"someMissingField > 1",
+			"",
+			0,
+			true,
+			nil,
+		},
+		{
+			"simple filter",
+			"demo2",
+			"id != ''",
+			"",
+			0,
+			false,
+			[]string{
+				"llvuca81nly1qls",
+				"achvryl401bhse3",
+				"0yxhwia2amd8gec",
+			},
+		},
+		{
+			"multi-condition filter with sort",
+			"demo2",
+			"id != '' && active=true",
+			"-created,title",
+			-1, // should behave the same as 0
+			false,
+			[]string{
+				"0yxhwia2amd8gec",
+				"achvryl401bhse3",
+			},
+		},
+		{
+			"with limit",
+			"demo2",
+			"id != ''",
+			"title",
+			2,
+			false,
+			[]string{
+				"llvuca81nly1qls",
+				"achvryl401bhse3",
+			},
+		},
+	}
+
+	for _, s := range scenarios {
+		records, err := app.Dao().FindRecordsByFilter(
+			s.collectionIdOrName,
+			s.filter,
+			s.sort,
+			s.limit,
+		)
+
+		hasErr := err != nil
+		if hasErr != s.expectError {
+			t.Errorf("[%s] Expected hasErr to be %v, got %v (%v)", s.name, s.expectError, hasErr, err)
+			continue
+		}
+
+		if hasErr {
+			continue
+		}
+
+		if len(records) != len(s.expectRecordIds) {
+			t.Errorf("[%s] Expected %d records, got %d", s.name, len(s.expectRecordIds), len(records))
+			continue
+		}
+
+		for i, id := range s.expectRecordIds {
+			if id != records[i].Id {
+				t.Errorf("[%s] Expected record with id %q, got %q at index %d", s.name, id, records[i].Id, i)
+			}
+		}
+	}
+}
+
+func TestFindFirstRecordByFilter(t *testing.T) {
+	app, _ := tests.NewTestApp()
+	defer app.Cleanup()
+
+	scenarios := []struct {
+		name               string
+		collectionIdOrName string
+		filter             string
+		expectError        bool
+		expectRecordId     string
+	}{
+		{
+			"missing collection",
+			"missing",
+			"id != ''",
+			true,
+			"",
+		},
+		{
+			"missing filter",
+			"demo2",
+			"",
+			true,
+			"",
+		},
+		{
+			"invalid filter",
+			"demo2",
+			"someMissingField > 1",
+			true,
+			"",
+		},
+		{
+			"valid filter but no matches",
+			"demo2",
+			"id = 'test'",
+			true,
+			"",
+		},
+		{
+			"valid filter and multiple matches",
+			"demo2",
+			"id != ''",
+			false,
+			"llvuca81nly1qls",
+		},
+	}
+
+	for _, s := range scenarios {
+		record, err := app.Dao().FindFirstRecordByFilter(s.collectionIdOrName, s.filter)
+
+		hasErr := err != nil
+		if hasErr != s.expectError {
+			t.Errorf("[%s] Expected hasErr to be %v, got %v (%v)", s.name, s.expectError, hasErr, err)
+			continue
+		}
+
+		if hasErr {
+			continue
+		}
+
+		if record.Id != s.expectRecordId {
+			t.Errorf("[%s] Expected record with id %q, got %q", s.name, s.expectRecordId, record.Id)
+		}
+	}
+}
+
+func TestCanAccessRecord(t *testing.T) {
+	app, _ := tests.NewTestApp()
+	defer app.Cleanup()
+
+	admin, err := app.Dao().FindAdminByEmail("test@example.com")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	authRecord, err := app.Dao().FindAuthRecordByEmail("users", "test@example.com")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	record, err := app.Dao().FindRecordById("demo1", "imy661ixudk5izi")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	scenarios := []struct {
+		name        string
+		record      *models.Record
+		requestInfo *models.RequestInfo
+		rule        *string
+		expected    bool
+		expectError bool
+	}{
+		{
+			"as admin with nil rule",
+			record,
+			&models.RequestInfo{
+				Admin: admin,
+			},
+			nil,
+			true,
+			false,
+		},
+		{
+			"as admin with non-empty rule",
+			record,
+			&models.RequestInfo{
+				Admin: admin,
+			},
+			types.Pointer("id = ''"), // the filter rule should be ignored
+			true,
+			false,
+		},
+		{
+			"as admin with invalid rule",
+			record,
+			&models.RequestInfo{
+				Admin: admin,
+			},
+			types.Pointer("id ?!@ 1"), // the filter rule should be ignored
+			true,
+			false,
+		},
+		{
+			"as guest with nil rule",
+			record,
+			&models.RequestInfo{},
+			nil,
+			false,
+			false,
+		},
+		{
+			"as guest with empty rule",
+			record,
+			&models.RequestInfo{},
+			types.Pointer(""),
+			true,
+			false,
+		},
+		{
+			"as guest with invalid rule",
+			record,
+			&models.RequestInfo{},
+			types.Pointer("id ?!@ 1"),
+			false,
+			true,
+		},
+		{
+			"as guest with mismatched rule",
+			record,
+			&models.RequestInfo{},
+			types.Pointer("@request.auth.id != ''"),
+			false,
+			false,
+		},
+		{
+			"as guest with matched rule",
+			record,
+			&models.RequestInfo{
+				Data: map[string]any{"test": 1},
+			},
+			types.Pointer("@request.auth.id != '' || @request.data.test = 1"),
+			true,
+			false,
+		},
+		{
+			"as auth record with nil rule",
+			record,
+			&models.RequestInfo{
+				AuthRecord: authRecord,
+			},
+			nil,
+			false,
+			false,
+		},
+		{
+			"as auth record with empty rule",
+			record,
+			&models.RequestInfo{
+				AuthRecord: authRecord,
+			},
+			types.Pointer(""),
+			true,
+			false,
+		},
+		{
+			"as auth record with invalid rule",
+			record,
+			&models.RequestInfo{
+				AuthRecord: authRecord,
+			},
+			types.Pointer("id ?!@ 1"),
+			false,
+			true,
+		},
+		{
+			"as auth record with mismatched rule",
+			record,
+			&models.RequestInfo{
+				AuthRecord: authRecord,
+				Data:       map[string]any{"test": 1},
+			},
+			types.Pointer("@request.auth.id != '' && @request.data.test > 1"),
+			false,
+			false,
+		},
+		{
+			"as auth record with matched rule",
+			record,
+			&models.RequestInfo{
+				AuthRecord: authRecord,
+				Data:       map[string]any{"test": 2},
+			},
+			types.Pointer("@request.auth.id != '' && @request.data.test > 1"),
+			true,
+			false,
+		},
+	}
+
+	for _, s := range scenarios {
+		result, err := app.Dao().CanAccessRecord(s.record, s.requestInfo, s.rule)
+
+		if result != s.expected {
+			t.Errorf("[%s] Expected %v, got %v", s.name, s.expected, result)
+		}
+
+		hasErr := err != nil
+		if hasErr != s.expectError {
+			t.Errorf("[%s] Expected hasErr %v, got %v (%v)", s.name, s.expectError, hasErr, err)
 		}
 	}
 }

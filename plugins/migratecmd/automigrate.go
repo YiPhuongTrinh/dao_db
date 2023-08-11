@@ -40,7 +40,7 @@ func (p *plugin) afterCollectionChange() func(*core.ModelEvent) error {
 
 		var template string
 		var templateErr error
-		if p.options.TemplateLang == TemplateLangJS {
+		if p.config.TemplateLang == TemplateLangJS {
 			template, templateErr = p.jsDiffTemplate(new, old)
 		} else {
 			template, templateErr = p.goDiffTemplate(new, old)
@@ -62,22 +62,23 @@ func (p *plugin) afterCollectionChange() func(*core.ModelEvent) error {
 			action = "updated_" + old.Name
 		}
 
-		appliedTime := time.Now().Unix()
-		name := fmt.Sprintf("%d_%s.%s", appliedTime, action, p.options.TemplateLang)
-		filePath := filepath.Join(p.options.Dir, name)
+		name := fmt.Sprintf("%d_%s.%s", time.Now().Unix(), action, p.config.TemplateLang)
+		filePath := filepath.Join(p.config.Dir, name)
 
 		return p.app.Dao().RunInTransaction(func(txDao *daos.Dao) error {
 			// insert the migration entry
 			_, err := txDao.DB().Insert(migrate.DefaultMigrationsTable, dbx.Params{
-				"file":    name,
-				"applied": appliedTime,
+				"file": name,
+				// use microseconds for more granular applied time in case
+				// multiple collection changes happens at the ~exact time
+				"applied": time.Now().UnixMicro(),
 			}).Execute()
 			if err != nil {
 				return err
 			}
 
 			// ensure that the local migrations dir exist
-			if err := os.MkdirAll(p.options.Dir, os.ModePerm); err != nil {
+			if err := os.MkdirAll(p.config.Dir, os.ModePerm); err != nil {
 				return fmt.Errorf("failed to create migration dir: %w", err)
 			}
 
@@ -135,20 +136,4 @@ func (p *plugin) getCachedCollections() (map[string]*models.Collection, error) {
 	result, _ := p.app.Cache().Get(collectionsCacheKey).(map[string]*models.Collection)
 
 	return result, nil
-}
-
-func (p *plugin) hasCustomMigrations() bool {
-	files, err := os.ReadDir(p.options.Dir)
-	if err != nil {
-		return false
-	}
-
-	for _, f := range files {
-		if f.IsDir() {
-			continue
-		}
-		return true
-	}
-
-	return false
 }

@@ -26,15 +26,25 @@ export default [
         logo:  "google.svg",
     },
     {
+        key:   "microsoftAuth",
+        title: "Microsoft",
+        logo:  "microsoft.svg",
+        optionsComponent: MicrosoftOptions,
+    },
+    {
+        key:   "yandexAuth",
+        title: "Yandex",
+        logo:  "yandex.svg",
+    },
+    {
         key:   "facebookAuth",
         title: "Facebook",
         logo:  "facebook.svg",
     },
     {
-        key:   "microsoftAuth",
-        title: "Microsoft",
-        logo:  "microsoft.svg",
-        optionsComponent: MicrosoftOptions,
+        key:   "instagramAuth",
+        title: "Instagram",
+        logo:  "instagram.svg",
     },
     {
         key:   "githubAuth",
@@ -72,6 +82,11 @@ export default [
         key:   "kakaoAuth",
         title: "Kakao",
         logo:  "kakao.svg",
+    },
+    {
+        key:   "vkAuth",
+        title: "VK",
+        logo:  "vk.svg"
     },
     {
         key:   "spotifyAuth",
