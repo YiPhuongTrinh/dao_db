@@ -1,0 +1,12 @@
+version: '3.8'
+services:
+  hello_world_base:
+    image: 'daobien'
+    restart: always
+    ports:
+       - '8080:8080'
+    volumes:
+      - ~/Developer/BASE_STORAGE/hello_world/pb_data:/base/build/pb_data
+      - ~/Developer/BASE_STORAGE/hello_world/pb_migrations:/base/build/pb_migrations
+      - ~/Developer/BASE_STORAGE/hello_world/pb_public:/base/build/pb_public
+    
