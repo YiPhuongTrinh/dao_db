@@ -287,8 +287,10 @@ func ActivityLogger(app core.App) echo.MiddlewareFunc {
 		return func(c echo.Context) error {
 			err := next(c)
 
+			logsMaxDays := app.Settings().Logs.MaxDays
+
 			// no logs retention
-			if app.Settings().Logs.MaxDays == 0 {
+			if logsMaxDays == 0 {
 				return err
 			}
 
@@ -348,8 +350,8 @@ func ActivityLogger(app core.App) echo.MiddlewareFunc {
 				lastLogsDeletedAt := cast.ToTime(app.Cache().Get("lastLogsDeletedAt"))
 				daysDiff := now.Sub(lastLogsDeletedAt).Hours() * 24
 
-				if daysDiff > float64(app.Settings().Logs.MaxDays) {
-					deleteErr := app.LogsDao().DeleteOldRequests(now.AddDate(0, 0, -1*app.Settings().Logs.MaxDays))
+				if daysDiff > float64(logsMaxDays) {
+					deleteErr := app.LogsDao().DeleteOldRequests(now.AddDate(0, 0, -1*logsMaxDays))
 					if deleteErr == nil {
 						app.Cache().Set("lastLogsDeletedAt", now)
 					} else if app.IsDebug() {
@@ -393,15 +395,15 @@ func realUserIp(r *http.Request, fallbackIp string) string {
 	return fallbackIp
 }
 
-// eagerRequestDataCache ensures that the request data is cached in the request
+// eagerRequestInfoCache ensures that the request data is cached in the request
 // context to allow reading for example the json request body data more than once.
-func eagerRequestDataCache(app core.App) echo.MiddlewareFunc {
+func eagerRequestInfoCache(app core.App) echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
 			switch c.Request().Method {
 			// currently we are eagerly caching only the requests with body
 			case "POST", "PUT", "PATCH", "DELETE":
-				RequestData(c)
+				RequestInfo(c)
 			}
 
 			return next(c)

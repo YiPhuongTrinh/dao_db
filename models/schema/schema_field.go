@@ -143,13 +143,17 @@ type SchemaField struct {
 func (f *SchemaField) ColDefinition() string {
 	switch f.Type {
 	case FieldTypeNumber:
-		return "NUMERIC DEFAULT 0"
+		return "NUMERIC DEFAULT 0 NOT NULL"
 	case FieldTypeBool:
-		return "BOOLEAN DEFAULT FALSE"
+		return "BOOLEAN DEFAULT FALSE NOT NULL"
 	case FieldTypeJson:
 		return "JSON DEFAULT NULL"
 	default:
-		return "TEXT DEFAULT ''"
+		if opt, ok := f.Options.(MultiValuer); ok && opt.IsMultiple() {
+			return "JSON DEFAULT '[]' NOT NULL"
+		}
+
+		return "TEXT DEFAULT '' NOT NULL"
 	}
 }
 
@@ -653,7 +657,7 @@ func (o RelationOptions) Validate() error {
 
 	return validation.ValidateStruct(&o,
 		validation.Field(&o.CollectionId, validation.Required),
-		validation.Field(&o.MinSelect, validation.NilOrNotEmpty, validation.Min(1)),
+		validation.Field(&o.MinSelect, validation.Min(0)),
 		validation.Field(&o.MaxSelect, validation.NilOrNotEmpty, validation.Min(minVal)),
 	)
 }

@@ -6,14 +6,11 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/pocketbase/dbx"
-	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/daos"
 	"github.com/pocketbase/pocketbase/models"
 	"github.com/pocketbase/pocketbase/models/schema"
 	"github.com/pocketbase/pocketbase/plugins/migratecmd"
 	"github.com/pocketbase/pocketbase/tests"
-	"github.com/pocketbase/pocketbase/tools/migrate"
 	"github.com/pocketbase/pocketbase/tools/types"
 )
 
@@ -25,6 +22,7 @@ func TestAutomigrateCollectionCreate(t *testing.T) {
 		{
 			migratecmd.TemplateLangJS,
 			`
+/// <reference path="../pb_data/types.d.ts" />
 migrate((db) => {
   const collection = new Collection({
     "id": "new_id",
@@ -134,7 +132,7 @@ func init() {
 
 		migrationsDir := filepath.Join(app.DataDir(), "_test_migrations")
 
-		migratecmd.MustRegister(app, nil, &migratecmd.Options{
+		migratecmd.MustRegister(app, nil, migratecmd.Config{
 			TemplateLang: s.lang,
 			Automigrate:  true,
 			Dir:          migrationsDir,
@@ -197,6 +195,7 @@ func TestAutomigrateCollectionDelete(t *testing.T) {
 		{
 			migratecmd.TemplateLangJS,
 			`
+/// <reference path="../pb_data/types.d.ts" />
 migrate((db) => {
   const dao = new Dao(db);
   const collection = dao.findCollectionByNameOrId("test123");
@@ -306,7 +305,7 @@ func init() {
 
 		migrationsDir := filepath.Join(app.DataDir(), "_test_migrations")
 
-		migratecmd.MustRegister(app, nil, &migratecmd.Options{
+		migratecmd.MustRegister(app, nil, migratecmd.Config{
 			TemplateLang: s.lang,
 			Automigrate:  true,
 			Dir:          migrationsDir,
@@ -375,14 +374,17 @@ func TestAutomigrateCollectionUpdate(t *testing.T) {
 		{
 			migratecmd.TemplateLangJS,
 			`
+/// <reference path="../pb_data/types.d.ts" />
 migrate((db) => {
   const dao = new Dao(db)
   const collection = dao.findCollectionByNameOrId("test123")
 
   collection.name = "test456_update"
   collection.type = "base"
-  collection.listRule = null
-  collection.deleteRule = "updated > 0 && @request.auth.id != ''"
+  collection.listRule = "@request.auth.id != ''"
+  collection.createRule = "id = \"nil_update\""
+  collection.updateRule = "id = \"2_update\""
+  collection.deleteRule = null
   collection.options = {}
   collection.indexes = [
     "create index test1 on test456_update (f1_name)"
@@ -428,7 +430,9 @@ migrate((db) => {
   collection.name = "test456"
   collection.type = "auth"
   collection.listRule = "@request.auth.id != '' && created > 0"
-  collection.deleteRule = null
+  collection.createRule = null
+  collection.updateRule = "id = \"2\""
+  collection.deleteRule = "id = \"3\""
   collection.options = {
     "allowEmailAuth": false,
     "allowOAuth2Auth": false,
@@ -503,9 +507,13 @@ func init() {
 
 		collection.Type = "base"
 
-		collection.ListRule = nil
+		collection.ListRule = types.Pointer("@request.auth.id != ''")
 
-		collection.DeleteRule = types.Pointer("updated > 0 && @request.auth.id != ''")
+		collection.CreateRule = types.Pointer("id = \"nil_update\"")
+
+		collection.UpdateRule = types.Pointer("id = \"2_update\"")
+
+		collection.DeleteRule = nil
 
 		options := map[string]any{}
 		json.Unmarshal([]byte(` + "`" + `{}` + "`" + `), &options)
@@ -566,7 +574,11 @@ func init() {
 
 		collection.ListRule = types.Pointer("@request.auth.id != '' && created > 0")
 
-		collection.DeleteRule = nil
+		collection.CreateRule = nil
+
+		collection.UpdateRule = types.Pointer("id = \"2\"")
+
+		collection.DeleteRule = types.Pointer("id = \"3\"")
 
 		options := map[string]any{}
 		json.Unmarshal([]byte(` + "`" + `{
@@ -630,7 +642,7 @@ func init() {
 
 		migrationsDir := filepath.Join(app.DataDir(), "_test_migrations")
 
-		migratecmd.MustRegister(app, nil, &migratecmd.Options{
+		migratecmd.MustRegister(app, nil, migratecmd.Config{
 			TemplateLang: s.lang,
 			Automigrate:  true,
 			Dir:          migrationsDir,
@@ -645,6 +657,9 @@ func init() {
 		collection.Updated = collection.Created
 		collection.ListRule = types.Pointer("@request.auth.id != '' && created > 0")
 		collection.ViewRule = types.Pointer(`id = "1"`)
+		collection.UpdateRule = types.Pointer(`id = "2"`)
+		collection.CreateRule = nil
+		collection.DeleteRule = types.Pointer(`id = "3"`)
 		collection.Indexes = types.JsonArray[string]{"create index test1 on test456 (f1_name)"}
 		collection.SetOptions(models.CollectionAuthOptions{
 			ManageRule:        types.Pointer("created > 0"),
@@ -683,7 +698,11 @@ func init() {
 		collection.Name = "test456_update"
 		collection.Type = models.CollectionTypeBase
 		collection.DeleteRule = types.Pointer(`updated > 0 && @request.auth.id != ''`)
-		collection.ListRule = nil
+		collection.ListRule = types.Pointer("@request.auth.id != ''")
+		collection.ViewRule = types.Pointer(`id = "1"`) // no change
+		collection.UpdateRule = types.Pointer(`id = "2_update"`)
+		collection.CreateRule = types.Pointer(`id = "nil_update"`)
+		collection.DeleteRule = nil
 		collection.Indexes = types.JsonArray[string]{
 			"create index test1 on test456_update (f1_name)",
 		}
@@ -749,7 +768,7 @@ func TestAutomigrateCollectionNoChanges(t *testing.T) {
 
 		migrationsDir := filepath.Join(app.DataDir(), "_test_migrations")
 
-		migratecmd.MustRegister(app, nil, &migratecmd.Options{
+		migratecmd.MustRegister(app, nil, migratecmd.Config{
 			TemplateLang: s.lang,
 			Automigrate:  true,
 			Dir:          migrationsDir,
@@ -777,38 +796,5 @@ func TestAutomigrateCollectionNoChanges(t *testing.T) {
 		if total := len(files); total != 0 {
 			t.Fatalf("[%d] Expected 0 files to be generated, got %d", i, total)
 		}
-	}
-}
-
-func TestInitialAutoSnapshot(t *testing.T) {
-	app, _ := tests.NewTestApp()
-	defer app.Cleanup()
-
-	migrationsDir := filepath.Join(app.DataDir(), "_test_auto_snapshot_")
-
-	migratecmd.MustRegister(app, nil, &migratecmd.Options{
-		TemplateLang: migratecmd.TemplateLangJS,
-		Automigrate:  true,
-		Dir:          migrationsDir,
-	})
-
-	app.Bootstrap()
-
-	app.OnBeforeServe().Trigger(&core.ServeEvent{
-		App: app,
-	})
-
-	var foundFiles []string
-
-	err := app.Dao().NonconcurrentDB().Select("file").
-		From(migrate.DefaultMigrationsTable).
-		Where(dbx.NewExp("file like '%collections_snapshot.js'")).
-		Column(&foundFiles)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if len(foundFiles) != 1 {
-		t.Fatalf("Expected 1 collections_snapshot migration, found %v", foundFiles)
 	}
 }

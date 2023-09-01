@@ -1,6 +1,7 @@
 package apis_test
 
 import (
+	"errors"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -9,6 +10,7 @@ import (
 	"time"
 
 	"github.com/labstack/echo/v5"
+	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/models"
 	"github.com/pocketbase/pocketbase/models/schema"
 	"github.com/pocketbase/pocketbase/tests"
@@ -45,7 +47,7 @@ func TestCollectionsList(t *testing.T) {
 			ExpectedContent: []string{
 				`"page":1`,
 				`"perPage":30`,
-				`"totalItems":10`,
+				`"totalItems":11`,
 				`"items":[{`,
 				`"id":"_pb_users_auth_"`,
 				`"id":"v851q4r790rhknl"`,
@@ -55,6 +57,7 @@ func TestCollectionsList(t *testing.T) {
 				`"id":"wzlqyes4orhoygb"`,
 				`"id":"4d1blo5cuycfaca"`,
 				`"id":"9n89pl5vkct6330"`,
+				`"id":"ib3m2700k5hlsjz"`,
 				`"type":"auth"`,
 				`"type":"base"`,
 			},
@@ -73,9 +76,9 @@ func TestCollectionsList(t *testing.T) {
 			ExpectedContent: []string{
 				`"page":2`,
 				`"perPage":2`,
-				`"totalItems":10`,
+				`"totalItems":11`,
 				`"items":[{`,
-				`"id":"kpv709sk2lqbqk8"`,
+				`"id":"v9gwnfh02gjq1q0"`,
 				`"id":"9n89pl5vkct6330"`,
 			},
 			ExpectedEvents: map[string]int{
@@ -299,8 +302,28 @@ func TestCollectionDelete(t *testing.T) {
 			RequestHeaders: map[string]string{
 				"Authorization": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6InN5d2JoZWNuaDQ2cmhtMCIsInR5cGUiOiJhZG1pbiIsImV4cCI6MjIwODk4NTI2MX0.M1m--VOqGyv0d23eeUc0r9xE8ZzHaYVmVFw1VZW6gT8",
 			},
-			Delay:          100 * time.Millisecond,
 			ExpectedStatus: 204,
+			ExpectedEvents: map[string]int{
+				"OnModelBeforeDelete":             1,
+				"OnModelAfterDelete":              1,
+				"OnCollectionBeforeDeleteRequest": 1,
+				"OnCollectionAfterDeleteRequest":  1,
+			},
+		},
+		{
+			Name:   "OnCollectionAfterDeleteRequest error response",
+			Method: http.MethodDelete,
+			Url:    "/api/collections/view2",
+			RequestHeaders: map[string]string{
+				"Authorization": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6InN5d2JoZWNuaDQ2cmhtMCIsInR5cGUiOiJhZG1pbiIsImV4cCI6MjIwODk4NTI2MX0.M1m--VOqGyv0d23eeUc0r9xE8ZzHaYVmVFw1VZW6gT8",
+			},
+			BeforeTestFunc: func(t *testing.T, app *tests.TestApp, e *echo.Echo) {
+				app.OnCollectionAfterDeleteRequest().Add(func(e *core.CollectionDeleteEvent) error {
+					return errors.New("error")
+				})
+			},
+			ExpectedStatus:  400,
+			ExpectedContent: []string{`"data":{}`},
 			ExpectedEvents: map[string]int{
 				"OnModelBeforeDelete":             1,
 				"OnModelAfterDelete":              1,
@@ -536,6 +559,28 @@ func TestCollectionCreate(t *testing.T) {
 				`"options":{"minPasswordLength":{"code":"validation_required"`,
 			},
 		},
+		{
+			Name:   "OnCollectionAfterCreateRequest error response",
+			Method: http.MethodPost,
+			Url:    "/api/collections",
+			Body:   strings.NewReader(`{"name":"new","type":"base","schema":[{"type":"text","id":"12345789","name":"test"}]}`),
+			RequestHeaders: map[string]string{
+				"Authorization": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6InN5d2JoZWNuaDQ2cmhtMCIsInR5cGUiOiJhZG1pbiIsImV4cCI6MjIwODk4NTI2MX0.M1m--VOqGyv0d23eeUc0r9xE8ZzHaYVmVFw1VZW6gT8",
+			},
+			BeforeTestFunc: func(t *testing.T, app *tests.TestApp, e *echo.Echo) {
+				app.OnCollectionAfterCreateRequest().Add(func(e *core.CollectionCreateEvent) error {
+					return errors.New("error")
+				})
+			},
+			ExpectedStatus:  400,
+			ExpectedContent: []string{`"data":{}`},
+			ExpectedEvents: map[string]int{
+				"OnModelBeforeCreate":             1,
+				"OnModelAfterCreate":              1,
+				"OnCollectionBeforeCreateRequest": 1,
+				"OnCollectionAfterCreateRequest":  1,
+			},
+		},
 
 		// view
 		// -----------------------------------------------------------
@@ -713,6 +758,28 @@ func TestCollectionUpdate(t *testing.T) {
 				`"id":"wsmn24bux7wo113"`,
 				`"name":"demo1"`,
 			},
+			ExpectedEvents: map[string]int{
+				"OnCollectionAfterUpdateRequest":  1,
+				"OnCollectionBeforeUpdateRequest": 1,
+				"OnModelAfterUpdate":              1,
+				"OnModelBeforeUpdate":             1,
+			},
+		},
+		{
+			Name:   "OnCollectionAfterUpdateRequest error response",
+			Method: http.MethodPatch,
+			Url:    "/api/collections/demo1",
+			Body:   strings.NewReader(`{}`),
+			RequestHeaders: map[string]string{
+				"Authorization": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6InN5d2JoZWNuaDQ2cmhtMCIsInR5cGUiOiJhZG1pbiIsImV4cCI6MjIwODk4NTI2MX0.M1m--VOqGyv0d23eeUc0r9xE8ZzHaYVmVFw1VZW6gT8",
+			},
+			BeforeTestFunc: func(t *testing.T, app *tests.TestApp, e *echo.Echo) {
+				app.OnCollectionAfterUpdateRequest().Add(func(e *core.CollectionUpdateEvent) error {
+					return errors.New("error")
+				})
+			},
+			ExpectedStatus:  400,
+			ExpectedContent: []string{`"data":{}`},
 			ExpectedEvents: map[string]int{
 				"OnCollectionAfterUpdateRequest":  1,
 				"OnCollectionBeforeUpdateRequest": 1,
@@ -1098,7 +1165,7 @@ func TestCollectionUpdate(t *testing.T) {
 }
 
 func TestCollectionsImport(t *testing.T) {
-	totalCollections := 10
+	totalCollections := 11
 
 	scenarios := []tests.ApiScenario{
 		{
@@ -1355,8 +1422,8 @@ func TestCollectionsImport(t *testing.T) {
 			ExpectedEvents: map[string]int{
 				"OnCollectionsAfterImportRequest":  1,
 				"OnCollectionsBeforeImportRequest": 1,
-				"OnModelBeforeDelete":              8,
-				"OnModelAfterDelete":               8,
+				"OnModelBeforeDelete":              9,
+				"OnModelAfterDelete":               9,
 				"OnModelBeforeUpdate":              2,
 				"OnModelAfterUpdate":               2,
 				"OnModelBeforeCreate":              1,
@@ -1371,6 +1438,58 @@ func TestCollectionsImport(t *testing.T) {
 				if len(collections) != expected {
 					t.Fatalf("Expected %d collections, got %d", expected, len(collections))
 				}
+			},
+		},
+		{
+			Name:   "authorized as admin + successful collections save",
+			Method: http.MethodPut,
+			Url:    "/api/collections/import",
+			Body: strings.NewReader(`{
+				"collections":[
+					{
+						"name": "import1",
+						"schema": [
+							{
+							  "id": "koih1lqx",
+							  "name": "test",
+							  "type": "text"
+							}
+						]
+					},
+					{
+						"name": "import2",
+						"schema": [
+							{
+							  "id": "koih1lqx",
+							  "name": "test",
+							  "type": "text"
+							}
+						],
+						"indexes": [
+							"create index idx_test on import2 (test)"
+						]
+					},
+					{
+						"name": "auth_without_schema",
+						"type": "auth"
+					}
+				]
+			}`),
+			RequestHeaders: map[string]string{
+				"Authorization": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6InN5d2JoZWNuaDQ2cmhtMCIsInR5cGUiOiJhZG1pbiIsImV4cCI6MjIwODk4NTI2MX0.M1m--VOqGyv0d23eeUc0r9xE8ZzHaYVmVFw1VZW6gT8",
+			},
+			BeforeTestFunc: func(t *testing.T, app *tests.TestApp, e *echo.Echo) {
+				app.OnCollectionsAfterImportRequest().Add(func(e *core.CollectionsImportEvent) error {
+					return errors.New("error")
+				})
+			},
+			ExpectedStatus:  400,
+			ExpectedContent: []string{`"data":{}`},
+			ExpectedEvents: map[string]int{
+				"OnCollectionsBeforeImportRequest": 1,
+				"OnCollectionsAfterImportRequest":  1,
+				"OnModelBeforeCreate":              3,
+				"OnModelAfterCreate":               3,
 			},
 		},
 	}

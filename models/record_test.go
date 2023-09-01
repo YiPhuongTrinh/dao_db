@@ -541,6 +541,70 @@ func TestRecordMergeExpandNilCheck(t *testing.T) {
 	}
 }
 
+func TestRecordExpandedRel(t *testing.T) {
+	collection := &models.Collection{}
+
+	main := models.NewRecord(collection)
+
+	single := models.NewRecord(collection)
+	single.Id = "single"
+
+	multiple1 := models.NewRecord(collection)
+	multiple1.Id = "multiple1"
+
+	multiple2 := models.NewRecord(collection)
+	multiple2.Id = "multiple2"
+
+	main.SetExpand(map[string]any{
+		"single":   single,
+		"multiple": []*models.Record{multiple1, multiple2},
+	})
+
+	if v := main.ExpandedOne("missing"); v != nil {
+		t.Fatalf("Expected nil, got %v", v)
+	}
+
+	if v := main.ExpandedOne("single"); v == nil || v.Id != "single" {
+		t.Fatalf("Expected record with id %q, got %v", "single", v)
+	}
+
+	if v := main.ExpandedOne("multiple"); v == nil || v.Id != "multiple1" {
+		t.Fatalf("Expected record with id %q, got %v", "multiple1", v)
+	}
+}
+
+func TestRecordExpandedAll(t *testing.T) {
+	collection := &models.Collection{}
+
+	main := models.NewRecord(collection)
+
+	single := models.NewRecord(collection)
+	single.Id = "single"
+
+	multiple1 := models.NewRecord(collection)
+	multiple1.Id = "multiple1"
+
+	multiple2 := models.NewRecord(collection)
+	multiple2.Id = "multiple2"
+
+	main.SetExpand(map[string]any{
+		"single":   single,
+		"multiple": []*models.Record{multiple1, multiple2},
+	})
+
+	if v := main.ExpandedAll("missing"); v != nil {
+		t.Fatalf("Expected nil, got %v", v)
+	}
+
+	if v := main.ExpandedAll("single"); len(v) != 1 || v[0].Id != "single" {
+		t.Fatalf("Expected [single] slice, got %v", v)
+	}
+
+	if v := main.ExpandedAll("multiple"); len(v) != 2 || v[0].Id != "multiple1" || v[1].Id != "multiple2" {
+		t.Fatalf("Expected [multiple1, multiple2] slice, got %v", v)
+	}
+}
+
 func TestRecordSchemaData(t *testing.T) {
 	collection := &models.Collection{
 		Type: models.CollectionTypeAuth,
@@ -665,6 +729,22 @@ func TestRecordSetAndGet(t *testing.T) {
 				Name: "field2",
 				Type: schema.FieldTypeNumber,
 			},
+			// fields that are not explicitly set to check
+			// the default retrieval value (single and multiple)
+			&schema.SchemaField{
+				Name: "field3",
+				Type: schema.FieldTypeBool,
+			},
+			&schema.SchemaField{
+				Name:    "field4",
+				Type:    schema.FieldTypeSelect,
+				Options: &schema.SelectOptions{MaxSelect: 2},
+			},
+			&schema.SchemaField{
+				Name:    "field5",
+				Type:    schema.FieldTypeRelation,
+				Options: &schema.RelationOptions{MaxSelect: types.Pointer(1)},
+			},
 		),
 	}
 
@@ -677,28 +757,40 @@ func TestRecordSetAndGet(t *testing.T) {
 	m.Set("unknown", 456)                        // undefined fields are allowed but not exported by default
 	m.Set("expand", map[string]any{"test": 123}) // should store the value in m.expand
 
-	if m.Get("id") != "test_id" {
-		t.Fatalf("Expected id %q, got %q", "test_id", m.Get("id"))
+	if v := m.Get("id"); v != "test_id" {
+		t.Fatalf("Expected id %q, got %q", "test_id", v)
 	}
 
-	if m.GetString("created") != "2022-09-15 00:00:00.123Z" {
-		t.Fatalf("Expected created %q, got %q", "2022-09-15 00:00:00.123Z", m.GetString("created"))
+	if v := m.GetString("created"); v != "2022-09-15 00:00:00.123Z" {
+		t.Fatalf("Expected created %q, got %q", "2022-09-15 00:00:00.123Z", v)
 	}
 
-	if m.GetString("updated") != "" {
-		t.Fatalf("Expected updated to be empty, got %q", m.GetString("updated"))
+	if v := m.GetString("updated"); v != "" {
+		t.Fatalf("Expected updated to be empty, got %q", v)
 	}
 
-	if m.Get("field1") != "123" {
-		t.Fatalf("Expected field1 %q, got %v", "123", m.Get("field1"))
+	if v, ok := m.Get("field1").(string); !ok || v != "123" {
+		t.Fatalf("Expected field1 %#v, got %#v", "123", m.Get("field1"))
 	}
 
-	if m.Get("field2") != 0.0 {
-		t.Fatalf("Expected field2 %v, got %v", 0.0, m.Get("field2"))
+	if v, ok := m.Get("field2").(float64); !ok || v != 0.0 {
+		t.Fatalf("Expected field2 %#v, got %#v", 0.0, m.Get("field2"))
 	}
 
-	if m.Get("unknown") != 456 {
-		t.Fatalf("Expected unknown %v, got %v", 456, m.Get("unknown"))
+	if v, ok := m.Get("field3").(bool); !ok || v != false {
+		t.Fatalf("Expected field3 %#v, got %#v", false, m.Get("field3"))
+	}
+
+	if v, ok := m.Get("field4").([]string); !ok || len(v) != 0 {
+		t.Fatalf("Expected field4 %#v, got %#v", "[]", m.Get("field4"))
+	}
+
+	if v, ok := m.Get("field5").(string); !ok || len(v) != 0 {
+		t.Fatalf("Expected field5 %#v, got %#v", "", m.Get("field5"))
+	}
+
+	if v := m.Get("unknown"); v != 456 {
+		t.Fatalf("Expected unknown %v, got %v", 456, v)
 	}
 
 	if m.Expand()["test"] != 123 {
