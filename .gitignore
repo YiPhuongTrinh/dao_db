@@ -1,8 +1,5 @@
 /.vscode/
 
-# Storage
-/storage/
-
 .idea
 
 .DS_Store
