@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"os"
@@ -22,6 +23,7 @@ import (
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/daos"
 	"github.com/pocketbase/pocketbase/forms"
+	"github.com/pocketbase/pocketbase/mails"
 	"github.com/pocketbase/pocketbase/models"
 	"github.com/pocketbase/pocketbase/models/schema"
 	"github.com/pocketbase/pocketbase/tokens"
@@ -31,6 +33,7 @@ import (
 	"github.com/pocketbase/pocketbase/tools/inflector"
 	"github.com/pocketbase/pocketbase/tools/list"
 	"github.com/pocketbase/pocketbase/tools/mailer"
+	"github.com/pocketbase/pocketbase/tools/rest"
 	"github.com/pocketbase/pocketbase/tools/security"
 	"github.com/pocketbase/pocketbase/tools/types"
 	"github.com/spf13/cobra"
@@ -111,10 +114,14 @@ func cronBinds(app core.App, loader *goja.Runtime, executors *vmsPool) {
 		pr := goja.MustCompile("", "{("+handler+").apply(undefined)}", true)
 
 		err := scheduler.Add(jobId, cronExpr, func() {
-			executors.run(func(executor *goja.Runtime) error {
+			err := executors.run(func(executor *goja.Runtime) error {
 				_, err := executor.RunProgram(pr)
 				return err
 			})
+
+			if err != nil && app.IsDebug() {
+				fmt.Println("[cronAdd] failed to execute cron job " + jobId + ": " + err.Error())
+			}
 		})
 		if err != nil {
 			panic("[cronAdd] failed to register cron job " + jobId + ": " + err.Error())
@@ -272,6 +279,21 @@ func wrapMiddlewares(executors *vmsPool, rawMiddlewares ...goja.Value) ([]echo.M
 func baseBinds(vm *goja.Runtime) {
 	vm.SetFieldNameMapper(FieldMapper{})
 
+	vm.Set("readerToString", func(r io.Reader, maxBytes int) (string, error) {
+		if maxBytes == 0 {
+			maxBytes = rest.DefaultMaxMemory
+		}
+
+		limitReader := io.LimitReader(r, int64(maxBytes))
+
+		bodyBytes, readErr := io.ReadAll(limitReader)
+		if readErr != nil {
+			return "", readErr
+		}
+
+		return string(bodyBytes), nil
+	})
+
 	vm.Set("arrayOf", func(model any) any {
 		mt := reflect.TypeOf(model)
 		st := reflect.SliceOf(mt)
@@ -415,6 +437,19 @@ func dbxBinds(vm *goja.Runtime) {
 	obj.Set("notBetween", dbx.NotBetween)
 }
 
+func mailsBinds(vm *goja.Runtime) {
+	obj := vm.NewObject()
+	vm.Set("$mails", obj)
+
+	// admin
+	obj.Set("sendAdminPasswordReset", mails.SendAdminPasswordReset)
+
+	// record
+	obj.Set("sendRecordPasswordReset", mails.SendRecordPasswordReset)
+	obj.Set("sendRecordVerification", mails.SendRecordVerification)
+	obj.Set("sendRecordChangeEmail", mails.SendRecordChangeEmail)
+}
+
 func tokensBinds(vm *goja.Runtime) {
 	obj := vm.NewObject()
 	vm.Set("$tokens", obj)
@@ -435,6 +470,14 @@ func tokensBinds(vm *goja.Runtime) {
 func securityBinds(vm *goja.Runtime) {
 	obj := vm.NewObject()
 	vm.Set("$security", obj)
+
+	// crypto
+	obj.Set("md5", security.MD5)
+	obj.Set("sha256", security.SHA256)
+	obj.Set("sha512", security.SHA512)
+	obj.Set("hs256", security.HS256)
+	obj.Set("hs512", security.HS512)
+	obj.Set("equal", security.Equal)
 
 	// random
 	obj.Set("randomString", security.RandomString)
@@ -570,9 +613,11 @@ func httpClientBinds(vm *goja.Runtime) {
 	vm.Set("$http", obj)
 
 	type sendResult struct {
-		StatusCode int
-		Raw        string
-		Json       any
+		StatusCode int                     `json:"statusCode"`
+		Headers    map[string][]string     `json:"headers"`
+		Cookies    map[string]*http.Cookie `json:"cookies"`
+		Raw        string                  `json:"raw"`
+		Json       any                     `json:"json"`
 	}
 
 	type sendConfig struct {
@@ -643,7 +688,17 @@ func httpClientBinds(vm *goja.Runtime) {
 
 		result := &sendResult{
 			StatusCode: res.StatusCode,
+			Headers:    map[string][]string{},
+			Cookies:    map[string]*http.Cookie{},
 			Raw:        string(bodyRaw),
+		}
+
+		for k, v := range res.Header {
+			result.Headers[k] = v
+		}
+
+		for _, v := range res.Cookies() {
+			result.Cookies[v.Name] = v
 		}
 
 		if len(result.Raw) != 0 {
