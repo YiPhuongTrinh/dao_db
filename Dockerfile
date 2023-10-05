@@ -8,13 +8,13 @@ RUN apk add --no-cache \
     openssh
 
 COPY ./ /base
-WORKDIR /base/build
+WORKDIR /base/examples/base
 
 RUN go build
 WORKDIR /
 
-EXPOSE 8080
+EXPOSE 8888
 
 # start PocketBase
-CMD ["/base/build/build", "serve", "--http=0.0.0.0:8080"]
+CMD ["/base/examples/base/base", "serve", "--http=0.0.0.0:8888"]
 
