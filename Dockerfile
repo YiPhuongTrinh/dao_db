@@ -15,6 +15,7 @@ WORKDIR /
 
 EXPOSE 8888
 
-# start PocketBase
+#@ Start PocketBase
+
 CMD ["/base/examples/base/base", "serve", "--http=0.0.0.0:8888"]
 
