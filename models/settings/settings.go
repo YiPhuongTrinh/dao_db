@@ -63,6 +63,8 @@ type Settings struct {
 	InstagramAuth AuthProviderConfig `form:"instagramAuth" json:"instagramAuth"`
 	VKAuth        AuthProviderConfig `form:"vkAuth" json:"vkAuth"`
 	YandexAuth    AuthProviderConfig `form:"yandexAuth" json:"yandexAuth"`
+	PatreonAuth   AuthProviderConfig `form:"patreonAuth" json:"patreonAuth"`
+	MailcowAuth   AuthProviderConfig `form:"mailcowAuth" json:"mailcowAuth"`
 }
 
 // New creates and returns a new default Settings instance.
@@ -187,6 +189,12 @@ func New() *Settings {
 		YandexAuth: AuthProviderConfig{
 			Enabled: false,
 		},
+		PatreonAuth: AuthProviderConfig{
+			Enabled: false,
+		},
+		MailcowAuth: AuthProviderConfig{
+			Enabled: false,
+		},
 	}
 }
 
@@ -230,6 +238,8 @@ func (s *Settings) Validate() error {
 		validation.Field(&s.InstagramAuth),
 		validation.Field(&s.VKAuth),
 		validation.Field(&s.YandexAuth),
+		validation.Field(&s.PatreonAuth),
+		validation.Field(&s.MailcowAuth),
 	)
 }
 
@@ -296,6 +306,8 @@ func (s *Settings) RedactClone() (*Settings, error) {
 		&clone.InstagramAuth.ClientSecret,
 		&clone.VKAuth.ClientSecret,
 		&clone.YandexAuth.ClientSecret,
+		&clone.PatreonAuth.ClientSecret,
+		&clone.MailcowAuth.ClientSecret,
 	}
 
 	// mask all sensitive fields
@@ -336,6 +348,8 @@ func (s *Settings) NamedAuthProviderConfigs() map[string]AuthProviderConfig {
 		auth.NameInstagram:  s.InstagramAuth,
 		auth.NameVK:         s.VKAuth,
 		auth.NameYandex:     s.YandexAuth,
+		auth.NamePatreon:    s.PatreonAuth,
+		auth.NameMailcow:    s.MailcowAuth,
 	}
 }
 

@@ -35,6 +35,7 @@ import (
 	"github.com/pocketbase/pocketbase/tools/mailer"
 	"github.com/pocketbase/pocketbase/tools/rest"
 	"github.com/pocketbase/pocketbase/tools/security"
+	"github.com/pocketbase/pocketbase/tools/subscriptions"
 	"github.com/pocketbase/pocketbase/tools/types"
 	"github.com/spf13/cobra"
 )
@@ -412,6 +413,16 @@ func baseBinds(vm *goja.Runtime) {
 
 		return instanceValue
 	})
+
+	vm.Set("Cookie", func(call goja.ConstructorCall) *goja.Object {
+		instance := &http.Cookie{}
+		return structConstructor(vm, call, instance)
+	})
+
+	vm.Set("SubscriptionMessage", func(call goja.ConstructorCall) *goja.Object {
+		instance := &subscriptions.Message{}
+		return structConstructor(vm, call, instance)
+	})
 }
 
 func dbxBinds(vm *goja.Runtime) {
@@ -538,7 +549,8 @@ func osBinds(vm *goja.Runtime) {
 	vm.Set("$os", obj)
 
 	obj.Set("args", os.Args)
-	obj.Set("exec", exec.Command)
+	obj.Set("exec", exec.Command) // @deprecated
+	obj.Set("cmd", exec.Command)
 	obj.Set("exit", os.Exit)
 	obj.Set("getenv", os.Getenv)
 	obj.Set("dirFS", os.DirFS)

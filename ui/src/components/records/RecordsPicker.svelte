@@ -81,9 +81,11 @@
             }
 
             loadPromises.push(
-                ApiClient.collection(collectionId).getFullList(batchSize, {
+                ApiClient.collection(collectionId).getFullList({
+                    batch: batchSize,
                     filter: filters.join("||"),
-                    $autoCancel: false,
+                    fields: "*:excerpt(200)",
+                    requestKey: null,
                 })
             );
         }
@@ -140,8 +142,9 @@
             const result = await ApiClient.collection(collectionId).getList(page, batchSize, {
                 filter: CommonHelper.normalizeSearchFilter(filter, fallbackSearchFields),
                 sort: !isView ? "-created" : "",
+                fields: "*:excerpt(200)",
                 skipTotal: 1,
-                $cancelKey: uniqueId + "loadList",
+                requestKey: uniqueId + "loadList",
             });
 
             list = CommonHelper.filterDuplicatesByKey(list.concat(result.items));
@@ -211,7 +214,7 @@
         {#if !isView}
             <button
                 type="button"
-                class="btn btn-transparent btn-hint p-l-sm p-r-sm"
+                class="btn btn-pill btn-transparent btn-hint p-l-xs p-r-xs"
                 on:click={() => upsertPanel?.show()}
             >
                 <div class="txt">New record</div>
@@ -330,11 +333,11 @@
     bind:this={upsertPanel}
     {collection}
     on:save={(e) => {
-        CommonHelper.removeByKey(list, "id", e.detail.id);
-        list.unshift(e.detail);
+        CommonHelper.removeByKey(list, "id", e.detail.record.id);
+        list.unshift(e.detail.record);
         list = list;
 
-        select(e.detail);
+        select(e.detail.record);
     }}
     on:delete={(e) => {
         CommonHelper.removeByKey(list, "id", e.detail.id);

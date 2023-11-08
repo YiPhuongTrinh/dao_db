@@ -79,7 +79,7 @@ export default class CommonHelper {
             tagName === "input" ||
             tagName === "select" ||
             tagName === "textarea" ||
-            element.isContentEditable
+            element?.isContentEditable
         )
     }
 
@@ -97,7 +97,7 @@ export default class CommonHelper {
             tagName === "button" ||
             tagName === "a" ||
             tagName === "details" ||
-            element.tabIndex >= 0
+            element?.tabIndex >= 0
         );
     }
 
@@ -845,6 +845,7 @@ export default class CommonHelper {
      * @return {Boolean}
      */
     static hasImageExtension(filename) {
+        filename = filename || "";
         return !!imageExtensions.find((ext) => filename.toLowerCase().endsWith(ext));
     }
 
@@ -855,6 +856,7 @@ export default class CommonHelper {
      * @return {Boolean}
      */
     static hasVideoExtension(filename) {
+        filename = filename || "";
         return !!videoExtensions.find((ext) => filename.toLowerCase().endsWith(ext));
     }
 
@@ -865,6 +867,7 @@ export default class CommonHelper {
      * @return {Boolean}
      */
     static hasAudioExtension(filename) {
+        filename = filename || "";
         return !!audioExtensions.find((ext) => filename.toLowerCase().endsWith(ext));
     }
 
@@ -875,6 +878,7 @@ export default class CommonHelper {
      * @return {Boolean}
      */
     static hasDocumentExtension(filename) {
+        filename = filename || "";
         return !!documentExtensions.find((ext) => filename.toLowerCase().endsWith(ext));
     }
 
@@ -1396,7 +1400,7 @@ export default class CommonHelper {
                 "codesample",
                 "directionality",
             ],
-            toolbar: "styles | alignleft aligncenter alignright | bold italic forecolor backcolor | bullist numlist | link image table codesample direction | code fullscreen",
+            toolbar: "styles | alignleft aligncenter alignright | bold italic forecolor backcolor | bullist numlist | link image_picker table codesample direction | code fullscreen",
             paste_postprocess: (editor, args) => {
                 cleanupPastedNode(args.node);
             },
@@ -1464,7 +1468,7 @@ export default class CommonHelper {
                                 icon: "ltr",
                                 onAction: () => {
                                     window?.localStorage?.setItem(lastDirectionKey, "ltr");
-                                    tinymce.activeEditor.execCommand("mceDirectionLTR");
+                                    editor.execCommand("mceDirectionLTR");
                                 }
                             },
                             {
@@ -1473,7 +1477,7 @@ export default class CommonHelper {
                                 icon: "rtl",
                                 onAction: () => {
                                     window?.localStorage?.setItem(lastDirectionKey, "rtl");
-                                    tinymce.activeEditor.execCommand("mceDirectionRTL");
+                                    editor.execCommand("mceDirectionRTL");
                                 }
                             }
                         ];
@@ -1481,6 +1485,32 @@ export default class CommonHelper {
                         callback(items);
                     }
                 });
+
+                editor.ui.registry.addMenuButton("image_picker", {
+                    icon: "image",
+                    fetch: (callback) => {
+                        const items = [
+                            {
+                                type: "menuitem",
+                                text: "From collection",
+                                icon: "gallery",
+                                onAction: () => {
+                                    editor.dispatch("collections_file_picker", {})
+                                }
+                            },
+                            {
+                                type: "menuitem",
+                                text: "Inline",
+                                icon: "browse",
+                                onAction: () => {
+                                    editor.execCommand("mceImage");
+                                }
+                            }
+                        ];
+
+                        callback(items);
+                    }
+                })
             },
         };
     }
@@ -1922,5 +1952,74 @@ export default class CommonHelper {
             required: false,
             options:  {},
         }, data);
+    }
+
+    /**
+     * Triggers a window resize event.
+     */
+    static triggerResize() {
+        window.dispatchEvent(new Event("resize"))
+    }
+
+    /**
+     * Extracts the hash query parameters from the current url and
+     * returns them as plain object.
+     *
+     * @return {Object}
+     */
+    static getHashQueryParams() {
+        let query = "";
+
+        const queryStart = window.location.hash.indexOf("?");
+        if (queryStart > -1) {
+            query = window.location.hash.substring(queryStart + 1);
+        }
+
+        return Object.fromEntries(new URLSearchParams(query))
+    }
+
+    /**
+     * Replaces the current hash query parameters with the provided `params`
+     * without adding new state to the browser history.
+     *
+     * @param {Object} params
+     */
+    static replaceHashQueryParams(params) {
+        params = params || {};
+
+        let query = "";
+
+        let hash = window.location.hash
+
+        const queryStart = hash.indexOf("?");
+        if (queryStart > -1) {
+            query = hash.substring(queryStart + 1);
+            hash = hash.substring(0, queryStart);
+        }
+
+        const parsed = new URLSearchParams(query)
+
+        for (let key in params) {
+            const val = params[key];
+
+            if (val === null) {
+                parsed.delete(key);
+            } else {
+                parsed.set(key, val);
+            }
+        }
+
+        query = parsed.toString();
+        if (query != "") {
+            hash += ("?" + query);
+        }
+
+        // replace the hash/fragment part with the updated one
+        let href = window.location.href;
+        const hashIndex = href.indexOf("#");
+        if (hashIndex > -1) {
+            href = href.substring(0, hashIndex);
+        }
+        window.location.replace(href + hash);
     }
 }

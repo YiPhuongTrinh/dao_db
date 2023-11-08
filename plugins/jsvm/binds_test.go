@@ -46,7 +46,7 @@ func TestBaseBindsCount(t *testing.T) {
 	vm := goja.New()
 	baseBinds(vm)
 
-	testBindsCount(vm, "this", 14, t)
+	testBindsCount(vm, "this", 16, t)
 }
 
 func TestBaseBindsReaderToString(t *testing.T) {
@@ -62,6 +62,69 @@ func TestBaseBindsReaderToString(t *testing.T) {
 
 		if (result != "test") {
 			throw new Error('Expected "test", got ' + result);
+		}
+	`)
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestBaseBindsCookie(t *testing.T) {
+	app, _ := tests.NewTestApp()
+	defer app.Cleanup()
+
+	vm := goja.New()
+	baseBinds(vm)
+
+	_, err := vm.RunString(`
+		const cookie = new Cookie({
+			name:     "example_name",
+			value:    "example_value",
+			path:     "/example_path",
+			domain:   "example.com",
+			maxAge:   10,
+			secure:   true,
+			httpOnly: true,
+			sameSite: 3,
+		});
+
+		const result = cookie.string();
+
+		const expected = "example_name=example_value; Path=/example_path; Domain=example.com; Max-Age=10; HttpOnly; Secure; SameSite=Strict";
+
+		if (expected != result) {
+			throw new("Expected \n" + expected + "\ngot\n" + result);
+		}
+	`)
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestBaseBindsSubscriptionMessage(t *testing.T) {
+	app, _ := tests.NewTestApp()
+	defer app.Cleanup()
+
+	vm := goja.New()
+	baseBinds(vm)
+	vm.Set("bytesToString", func(b []byte) string {
+		return string(b)
+	})
+
+	_, err := vm.RunString(`
+		const payload = {
+			name: "test",
+			data: '{"test":123}'
+		}
+
+		const result = new SubscriptionMessage(payload);
+
+		if (result.name != payload.name) {
+			throw new("Expected name " + payload.name + ", got " + result.name);
+		}
+
+		if (bytesToString(result.data) != payload.data) {
+			throw new("Expected data '" + payload.data + "', got '" + bytesToString(result.data) + "'");
 		}
 	`)
 	if err != nil {
@@ -1372,5 +1435,5 @@ func TestOsBindsCount(t *testing.T) {
 	vm := goja.New()
 	osBinds(vm)
 
-	testBindsCount(vm, "$os", 16, t)
+	testBindsCount(vm, "$os", 17, t)
 }

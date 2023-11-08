@@ -450,6 +450,57 @@ declare class Dao implements daos.Dao {
   constructor(concurrentDB?: dbx.Builder, nonconcurrentDB?: dbx.Builder)
 }
 
+interface Cookie extends http.Cookie{} // merge
+/**
+ * A Cookie represents an HTTP cookie as sent in the Set-Cookie header of an
+ * HTTP response.
+ *
+ * Example:
+ *
+ * ` + "```" + `js
+ * routerAdd("POST", "/example", (c) => {
+ *     c.setCookie(new Cookie({
+ *         name:     "example_name",
+ *         value:    "example_value",
+ *         path:     "/",
+ *         domain:   "example.com",
+ *         maxAge:   10,
+ *         secure:   true,
+ *         httpOnly: true,
+ *         sameSite: 3,
+ *     }))
+ *
+ *     return c.redirect(200, "/");
+ * })
+ * ` + "```" + `
+ *
+ * @group PocketBase
+ */
+declare class Cookie implements http.Cookie {
+  constructor(options?: Partial<http.Cookie>)
+}
+
+interface SubscriptionMessage extends subscriptions.Message{} // merge
+/**
+ * SubscriptionMessage defines a realtime subscription payload.
+ *
+ * Example:
+ *
+ * ` + "```" + `js
+ * onRealtimeConnectRequest((e) => {
+ *     e.client.send(new SubscriptionMessage({
+ *         name: "example",
+ *         data: '{"greeting": "Hello world"}'
+ *     }))
+ * })
+ * ` + "```" + `
+ *
+ * @group PocketBase
+ */
+declare class SubscriptionMessage implements subscriptions.Message {
+  constructor(options?: Partial<subscriptions.Message>)
+}
+
 // -------------------------------------------------------------------
 // dbxBinds
 // -------------------------------------------------------------------
@@ -505,6 +556,23 @@ declare namespace $tokens {
   let recordResetPasswordToken: tokens.newRecordResetPasswordToken
   let recordChangeEmailToken:   tokens.newRecordChangeEmailToken
   let recordFileToken:          tokens.newRecordFileToken
+}
+
+// -------------------------------------------------------------------
+// mailsBinds
+// -------------------------------------------------------------------
+
+/**
+ * ` + "`" + `$mails` + "`" + ` defines helpers to send common
+ * admins and auth records emails like verification, password reset, etc.
+ *
+ * @group PocketBase
+ */
+declare namespace $mails {
+  let sendAdminPasswordReset:  mails.sendAdminPasswordReset
+  let sendRecordPasswordReset: mails.sendRecordPasswordReset
+  let sendRecordVerification:  mails.sendRecordVerification
+  let sendRecordChangeEmail:   mails.sendRecordChangeEmail
 }
 
 // -------------------------------------------------------------------
@@ -590,7 +658,26 @@ declare namespace $filepath {
  * @group PocketBase
  */
 declare namespace $os {
-  export let exec:      exec.command
+  /**
+   * Legacy alias for $os.cmd().
+   */
+  export let exec: exec.command
+
+  /**
+   * Prepares an external OS command.
+   *
+   * Example:
+   *
+   * ` + "```" + `js
+   * // prepare the command to execute
+   * const cmd = $os.cmd('ls', '-sl')
+   *
+   * // execute the command and return its standard output as string
+   * const output = String.fromCharCode(...cmd.output());
+   * ` + "```" + `
+   */
+  export let cmd: exec.command
+
   export let args:      os.args
   export let exit:      os.exit
   export let getenv:    os.getenv
@@ -947,6 +1034,7 @@ func main() {
 			"github.com/pocketbase/pocketbase/tools/filesystem": {"*"},
 			"github.com/pocketbase/pocketbase/tools/template":   {"*"},
 			"github.com/pocketbase/pocketbase/tokens":           {"*"},
+			"github.com/pocketbase/pocketbase/mails":            {"*"},
 			"github.com/pocketbase/pocketbase/apis":             {"*"},
 			"github.com/pocketbase/pocketbase/forms":            {"*"},
 			"github.com/pocketbase/pocketbase":                  {"*"},

@@ -7,9 +7,10 @@
     import tooltip from "@/actions/tooltip";
     import { setErrors } from "@/stores/errors";
     import { confirm } from "@/stores/confirmation";
-    import { addSuccessToast } from "@/stores/toasts";
+    import { addSuccessToast, addErrorToast } from "@/stores/toasts";
     import Field from "@/components/base/Field.svelte";
     import Toggler from "@/components/base/Toggler.svelte";
+    import ModelDateIcon from "@/components/base/ModelDateIcon.svelte";
     import OverlayPanel from "@/components/base/OverlayPanel.svelte";
     import AuthFields from "@/components/records/fields/AuthFields.svelte";
     import TextField from "@/components/records/fields/TextField.svelte";
@@ -33,18 +34,18 @@
     export let collection;
 
     let recordPanel;
-    let original = null;
-    let record = null;
+    let original = {};
+    let record = {};
     let initialDraft = null;
     let isSaving = false;
-    let confirmClose = false; // prevent close recursion
+    let confirmHide = false; // prevent close recursion
     let uploadedFilesMap = {}; // eg.: {"field1":[File1, File2], ...}
     let deletedFileNamesMap = {}; // eg.: {"field1":[0, 1], ...}
-    let originalSerializedData = JSON.stringify(null);
+    let originalSerializedData = JSON.stringify(original);
     let serializedData = originalSerializedData;
     let activeTab = tabFormKey;
     let isNew = true;
-    let isLoaded = false;
+    let isLoading = true;
 
     $: isAuthCollection = collection?.type === "auth";
 
@@ -59,16 +60,16 @@
 
     $: isNew = !original || !original.id;
 
-    $: canSave = isNew || hasChanges;
+    $: canSave = !isLoading && (isNew || hasChanges);
 
-    $: if (isLoaded) {
+    $: if (!isLoading) {
         updateDraft(serializedData);
     }
 
     export function show(model) {
         load(model);
 
-        confirmClose = true;
+        confirmHide = true;
 
         activeTab = tabFormKey;
 
@@ -79,13 +80,48 @@
         return recordPanel?.hide();
     }
 
+    function forceHide() {
+        confirmHide = false;
+        hide();
+    }
+
+    async function resolveModel(model) {
+        if (model && typeof model === "string") {
+            // load from id
+            try {
+                return await ApiClient.collection(collection.id).getOne(model);
+            } catch (err) {
+                if (!err.isAbort) {
+                    forceHide();
+                    console.warn("resolveModel:", err);
+                    addErrorToast(`Unable to load record with id "${model}"`);
+                }
+            }
+
+            return null;
+        }
+
+        return model;
+    }
+
     async function load(model) {
-        isLoaded = false;
-        setErrors({}); // reset errors
-        original = model || {};
-        record = structuredClone(original);
+        isLoading = true;
+
+        // resets
+        setErrors({});
         uploadedFilesMap = {};
         deletedFileNamesMap = {};
+
+        // load the minimum model data if possible to minimize layout shifts
+        original =
+            typeof model === "string"
+                ? { id: model, collectionId: collection?.id, collectionName: collection?.name }
+                : model || {};
+        record = structuredClone(original);
+
+        // resolve the complete model
+        original = (await resolveModel(model)) || {};
+        record = structuredClone(original);
 
         // wait to populate the fields to get the normalized values
         await tick();
@@ -99,7 +135,8 @@
         }
 
         originalSerializedData = JSON.stringify(record);
-        isLoaded = true;
+
+        isLoading = false;
     }
 
     async function replaceOriginal(newOriginal) {
@@ -147,6 +184,7 @@
             // ignore local storage errors in case the serialized data
             // exceed the browser localStorage single value quota
             console.warn("updateDraft failure:", e);
+            window.localStorage.removeItem(draftKey());
         }
     }
 
@@ -167,11 +205,12 @@
             delete cloneB[field.name];
         }
 
-        // delete password props
-        delete cloneA.password;
-        delete cloneA.passwordConfirm;
-        delete cloneB.password;
-        delete cloneB.passwordConfirm;
+        // props to exclude from the checks
+        const excludeProps = ["expand", "password", "passwordConfirm"];
+        for (let prop of excludeProps) {
+            delete cloneA[prop];
+            delete cloneB[prop];
+        }
 
         return JSON.stringify(cloneA) == JSON.stringify(cloneB);
     }
@@ -203,13 +242,15 @@
             deleteDraft();
 
             if (hidePanel) {
-                confirmClose = false;
-                hide();
+                forceHide();
             } else {
                 replaceOriginal(result);
             }
 
-            dispatch("save", result);
+            dispatch("save", {
+                isNew: isNew,
+                record: result,
+            });
         } catch (err) {
             ApiClient.error(err);
         }
@@ -402,11 +443,13 @@
         {hasEditorField ? 'overlay-panel-xl' : 'overlay-panel-lg'}
         {isAuthCollection && !isNew ? 'colored-header' : ''}
     "
+    btnClose={!isLoading}
+    escClose={!isLoading}
+    overlayClose={!isLoading}
     beforeHide={() => {
-        if (hasChanges && confirmClose) {
+        if (hasChanges && confirmHide) {
             confirm("You have unsaved changes. Do you really want to close the panel?", () => {
-                confirmClose = false;
-                hide();
+                forceHide();
             });
 
             return false;
@@ -421,50 +464,63 @@
     on:show
 >
     <svelte:fragment slot="header">
-        <h4 class="panel-title">
-            {isNew ? "New" : "Edit"}
-            <strong>{collection?.name}</strong> record
-        </h4>
+        {#if isLoading}
+            <span class="loader loader-sm" />
+            <h4 class="panel-title txt-hint">Loading...</h4>
+        {:else}
+            <h4 class="panel-title">
+                {isNew ? "New" : "Edit"}
+                <strong>{collection?.name}</strong> record
+            </h4>
 
-        {#if !isNew}
-            <div class="flex-fill" />
-            <button type="button" aria-label="More" class="btn btn-sm btn-circle btn-transparent flex-gap-0">
-                <i class="ri-more-line" />
-                <Toggler class="dropdown dropdown-right dropdown-nowrap">
-                    {#if isAuthCollection && !original.verified && original.email}
+            {#if !isNew}
+                <div class="flex-fill" />
+                <button
+                    type="button"
+                    aria-label="More"
+                    class="btn btn-sm btn-circle btn-transparent flex-gap-0"
+                >
+                    <i class="ri-more-line" />
+                    <Toggler class="dropdown dropdown-right dropdown-nowrap">
+                        {#if isAuthCollection && !original.verified && original.email}
+                            <button
+                                type="button"
+                                class="dropdown-item closable"
+                                on:click={() => sendVerificationEmail()}
+                            >
+                                <i class="ri-mail-check-line" />
+                                <span class="txt">Send verification email</span>
+                            </button>
+                        {/if}
+                        {#if isAuthCollection && original.email}
+                            <button
+                                type="button"
+                                class="dropdown-item closable"
+                                on:click={() => sendPasswordResetEmail()}
+                            >
+                                <i class="ri-mail-lock-line" />
+                                <span class="txt">Send password reset email</span>
+                            </button>
+                        {/if}
                         <button
                             type="button"
                             class="dropdown-item closable"
-                            on:click={() => sendVerificationEmail()}
+                            on:click={() => duplicateConfirm()}
                         >
-                            <i class="ri-mail-check-line" />
-                            <span class="txt">Send verification email</span>
+                            <i class="ri-file-copy-line" />
+                            <span class="txt">Duplicate</span>
                         </button>
-                    {/if}
-                    {#if isAuthCollection && original.email}
                         <button
                             type="button"
-                            class="dropdown-item closable"
-                            on:click={() => sendPasswordResetEmail()}
+                            class="dropdown-item txt-danger closable"
+                            on:click|preventDefault|stopPropagation={() => deleteConfirm()}
                         >
-                            <i class="ri-mail-lock-line" />
-                            <span class="txt">Send password reset email</span>
+                            <i class="ri-delete-bin-7-line" />
+                            <span class="txt">Delete</span>
                         </button>
-                    {/if}
-                    <button type="button" class="dropdown-item closable" on:click={() => duplicateConfirm()}>
-                        <i class="ri-file-copy-line" />
-                        <span class="txt">Duplicate</span>
-                    </button>
-                    <button
-                        type="button"
-                        class="dropdown-item txt-danger closable"
-                        on:click|preventDefault|stopPropagation={() => deleteConfirm()}
-                    >
-                        <i class="ri-delete-bin-7-line" />
-                        <span class="txt">Delete</span>
-                    </button>
-                </Toggler>
-            </button>
+                    </Toggler>
+                </button>
+            {/if}
         {/if}
 
         {#if isAuthCollection && !isNew}
@@ -489,16 +545,17 @@
         {/if}
     </svelte:fragment>
 
-    <div class="tabs-content">
+    <div class="tabs-content no-animations">
         <!-- svelte-ignore a11y-no-noninteractive-element-interactions -->
         <form
             id={formId}
             class="tab-item"
+            class:no-pointer-events={isLoading}
             class:active={activeTab === tabFormKey}
             on:submit|preventDefault={save}
             on:keydown={handleFormKeydown}
         >
-            {#if !hasChanges && initialDraft}
+            {#if !hasChanges && initialDraft && !isLoading}
                 <div class="block" out:slide={{ duration: 150 }}>
                     <div class="alert alert-info m-0">
                         <div class="icon">
@@ -536,19 +593,13 @@
                 </label>
                 {#if !isNew}
                     <div class="form-field-addon">
-                        <i
-                            class="ri-calendar-event-line txt-disabled"
-                            use:tooltip={{
-                                text: `Created: ${record.created}\nUpdated: ${record.updated}`,
-                                position: "left",
-                            }}
-                        />
+                        <ModelDateIcon model={record} />
                     </div>
                 {/if}
                 <input
                     type="text"
                     id={uniqueId}
-                    placeholder="Leave empty to auto generate..."
+                    placeholder={!isLoading ? "Leave empty to auto generate..." : ""}
                     minlength="15"
                     readonly={!isNew}
                     bind:value={record.id}
@@ -604,7 +655,12 @@
     </div>
 
     <svelte:fragment slot="footer">
-        <button type="button" class="btn btn-transparent" disabled={isSaving} on:click={() => hide()}>
+        <button
+            type="button"
+            class="btn btn-transparent"
+            disabled={isSaving || isLoading}
+            on:click={() => hide()}
+        >
             <span class="txt">Cancel</span>
         </button>
 
@@ -612,7 +668,7 @@
             type="submit"
             form={formId}
             class="btn btn-expanded"
-            class:btn-loading={isSaving}
+            class:btn-loading={isSaving || isLoading}
             disabled={!canSave || isSaving}
         >
             <span class="txt">{isNew ? "Create" : "Save changes"}</span>
