@@ -1,0 +1,26 @@
+# For Deploy Database using Tunnel
+
+version: '3.8'
+
+name: d_database
+
+networks:
+  dao_networks:
+    name: d_networks
+    external: true
+
+services:
+
+  # Daobien Database
+  d-db:
+    container_name: d_db
+    image: 'd_db'
+    restart: always
+    ports:
+       - '8888:8888'
+    volumes:
+      - ~/Library/CloudStorage/OneDrive-0ccxf/Base/d_db/pb_data:/base/examples/base/pb_data
+      - ~/Library/CloudStorage/OneDrive-0ccxf/Base/d_db/pb_migrations:/base/examples/base/pb_migrations
+      - ~/Library/CloudStorage/OneDrive-0ccxf/Base/d_db/pb_public:/base/examples/base/pb_public
+    networks:
+      - dao_networks
